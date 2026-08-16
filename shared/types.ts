@@ -252,7 +252,9 @@ export interface GameRoomState {
   draftState: DredgedDraftState | null;
   krakenBoss: KrakenBossState | null;
   activePerks: Set<string>;
-  capsizingTimer: number; // triggers game over if > 2.5s past 32 deg
+  capsizingTimer: number;
+  isCapsizedScramble: boolean;
+  capsizeScrambleTimer: number;
   deckPuddles: DeckPuddle[];
   screenShaders: DeckScreenShaderState;
   endgameAudit: EndgameAuditRecord[] | null;

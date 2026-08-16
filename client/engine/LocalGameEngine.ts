@@ -48,6 +48,7 @@ export class LocalGameEngine {
 
   // Capsizing & Boss State
   public capsizingTimer: number = 0;
+  public capsizeScrambleTimer: number = 0;
 
   // Physics Tuning
   public tiltSensitivity: number = 0.5;
@@ -143,6 +144,8 @@ export class LocalGameEngine {
       krakenBoss: null,
       activePerks: this.activePerks,
       capsizingTimer: 0,
+      isCapsizedScramble: false,
+      capsizeScrambleTimer: 0,
       deckPuddles: [],
       screenShaders: {
         greenCrtGlow: false,
@@ -218,17 +221,53 @@ export class LocalGameEngine {
       return;
     }
 
-    // 3. Capsizing Detection ($> 30^\circ$ for $> 2.5\text{s}$)
-    if (Math.abs(state.boatAngle) >= PHYSICS.capsizingAngleThreshold) {
+    // 3. Capsizing Detection -> 6-Second Righting Scramble + Deck Purge
+    if (Math.abs(state.boatAngle) >= PHYSICS.capsizingAngleThreshold && !state.isCapsizedScramble) {
       this.capsizingTimer += 1 / 60;
       state.capsizingTimer = this.capsizingTimer;
-      if (this.capsizingTimer >= PHYSICS.capsizingMaxSeconds) {
-        this.triggerRunGameOver('🚢 THE SHIP CAPSIZED! All hands lost at sea!');
-        return;
+      if (this.capsizingTimer >= 1.5) {
+        // Trigger 1. THE DECK PURGE (All loose catches slide into sea!)
+        state.items = [];
+        this.onEvent?.('sfx', 'splash');
+        this.onEvent?.('sfx', 'bell');
+        this.onEvent?.('popup', '', { text: '🌊 DECK PURGE! Loose Catches Lost!', color: '#ef4444', x: boatCenterX, y: 160 });
+        this.addFeedMessage('🌊 BOAT OVERTURNED! All loose items washed into the sea!', 'hazard');
+
+        // Trigger 2. THE 6-SECOND RIGHTING SCRAMBLE
+        state.isCapsizedScramble = true;
+        this.capsizeScrambleTimer = 6.0;
+        state.capsizeScrambleTimer = 6.0;
+        this.capsizingTimer = 0;
+        this.addFeedMessage('🚨 6s RIGHTING SCRAMBLE: SPRINT TO HIGH SIDE & SPAM HEAVE!', 'hazard');
       }
-    } else {
+    } else if (!state.isCapsizedScramble) {
       this.capsizingTimer = Math.max(0, this.capsizingTimer - 2 / 60);
       state.capsizingTimer = this.capsizingTimer;
+    }
+
+    // Process Active Righting Scramble Countdown
+    if (state.isCapsizedScramble) {
+      this.capsizeScrambleTimer -= 1 / 60;
+      state.capsizeScrambleTimer = Math.max(0, this.capsizeScrambleTimer);
+
+      if (this.capsizeScrambleTimer <= 0) {
+        // 3. UNCLE GARY'S SALVAGE TAX ($75)
+        state.teamCash = Math.max(0, state.teamCash - 75);
+        state.isCapsizedScramble = false;
+        state.boatAngle = 0;
+        this.capsizingTimer = 0;
+        this.onEvent?.('sfx', 'slap');
+        this.onEvent?.('popup', '', { text: '💸 -$75 SALVAGE TAX!', color: '#f87171', x: boatCenterX, y: 160 });
+        this.addFeedMessage("💸 Uncle Gary's salvage tugboat righted the ship (-$75 Tax)!", 'hazard');
+      } else if (Math.abs(state.boatAngle) <= 8) {
+        // Successful High-Side Heave!
+        state.isCapsizedScramble = false;
+        state.boatAngle = 0;
+        this.capsizingTimer = 0;
+        this.onEvent?.('sfx', 'victory');
+        this.onEvent?.('popup', '', { text: '🚢 SHIP RIGHTED!', color: '#22c55e', x: boatCenterX, y: 150 });
+        this.addFeedMessage('🎉 SHIP RIGHTED! Crew teamwork heaved the boat upright!', 'score');
+      }
     }
 
     // 4. Update Swimming Fish Shadows
@@ -665,9 +704,30 @@ export class LocalGameEngine {
     }
   }
 
-  // --- Kitchen Station & Mismatch Handlers ---
-
   private handleGrabOrInteract(p: PlayerState): void {
+    // High-Side Heave during 6-Second Capsized Scramble!
+    if (this.state.isCapsizedScramble) {
+      const boatCenterX = CANVAS_WIDTH / 2;
+      const isBoatTiltedRight = this.state.boatAngle > 0;
+      const isPlayerOnHighSide = isBoatTiltedRight ? p.x < boatCenterX : p.x > boatCenterX;
+
+      if (isPlayerOnHighSide) {
+        const heaveReduction = 6.0;
+        if (this.state.boatAngle > 0) {
+          this.state.boatAngle = Math.max(0, this.state.boatAngle - heaveReduction);
+        } else {
+          this.state.boatAngle = Math.min(0, this.state.boatAngle + heaveReduction);
+        }
+        this.onEvent?.('sfx', 'throw');
+        this.onEvent?.('popup', '', { text: '💪 HEAVE! (-6°)', color: '#facc15', x: p.x, y: p.y - 25 });
+        this.addFeedMessage(`💪 ${p.name} HEAVED the high side! (${this.state.boatAngle.toFixed(1)}° left)`, 'info');
+      } else {
+        this.onEvent?.('popup', '', { text: '⚠️ SPRINT TO HIGH SIDE!', color: '#f87171', x: p.x, y: p.y - 25 });
+        this.addFeedMessage(`⚠️ ${p.name} is on the low side! Sprint to the opposite high side!`, 'hazard');
+      }
+      return;
+    }
+
     const nearStation = this.state.stations.find(s => 
       Math.hypot(s.x + s.w/2 - p.x, s.y + s.h/2 - p.y) < 65
     );

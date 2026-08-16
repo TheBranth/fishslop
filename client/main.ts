@@ -356,7 +356,9 @@ export class GameApp {
             boatAngle: this.engine.state.boatAngle,
             gameState: this.engine.state.gameState,
             draftState: this.engine.state.draftState,
-            teamCash: this.engine.state.teamCash
+            teamCash: this.engine.state.teamCash,
+            isCapsizedScramble: this.engine.state.isCapsizedScramble,
+            capsizeScrambleTimer: this.engine.state.capsizeScrambleTimer
           }
         });
       }

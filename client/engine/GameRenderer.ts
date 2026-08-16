@@ -867,6 +867,41 @@ export class GameRenderer {
         ctx.fill();
       });
     }
+
+    // 4. 🚨 6-Second Righting Scramble Emergency Siren Overlay
+    if (state.isCapsizedScramble) {
+      const pulse = Math.sin(Date.now() * 0.015);
+      const alpha = 0.25 + pulse * 0.15;
+      ctx.fillStyle = `rgba(239, 68, 68, ${alpha})`;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      // Top Emergency Scramble Banner
+      ctx.fillStyle = '#020617';
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(CANVAS_WIDTH / 2 - 200, 20, 400, 50, 16);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#f87171';
+      ctx.font = '900 15px "Plus Jakarta Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`🚨 6s SCRAMBLE: SPRINT TO HIGH SIDE & SPAM HEAVE!`, CANVAS_WIDTH / 2, 42);
+
+      const timeLeft = Math.max(0, state.capsizeScrambleTimer || 0).toFixed(1);
+      ctx.font = 'bold 12px monospace';
+      ctx.fillStyle = '#facc15';
+      ctx.fillText(`⏰ ${timeLeft}s UNTIL UNCLE GARY SALVAGE TAX (-$75)`, CANVAS_WIDTH / 2, 60);
+
+      // High-Side Arrow Indicator
+      const isTiltRight = state.boatAngle > 0;
+      const targetSideX = isTiltRight ? CANVAS_WIDTH / 2 - 180 : CANVAS_WIDTH / 2 + 180;
+      const arrowEmoji = isTiltRight ? '👈 SPRINT HERE & HEAVE!' : '👉 SPRINT HERE & HEAVE!';
+      ctx.fillStyle = '#facc15';
+      ctx.font = '900 16px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText(arrowEmoji, targetSideX, CANVAS_HEIGHT / 2);
+    }
   }
 
   private drawMassBalanceOverlay(state: GameRoomState): void {

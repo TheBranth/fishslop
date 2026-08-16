@@ -233,6 +233,23 @@ export class PhoneControllerApp {
     } else {
       document.getElementById('modal-ctrl-draft')?.classList.add('hidden');
     }
+
+    // 🚨 6-Second Righting Scramble Heave Mode
+    const grabLabel = document.getElementById('btn-grab-label');
+    const grabSub = document.getElementById('btn-grab-sub');
+    const statusText = document.getElementById('ctrl-status-text');
+
+    if (state.isCapsizedScramble) {
+      if (grabLabel) grabLabel.textContent = '💪 HEAVE SHIP!';
+      if (grabSub) grabSub.textContent = `SPAM ON HIGH SIDE (${state.capsizeScrambleTimer?.toFixed(1) || '6.0'}s)`;
+      if (statusText) statusText.textContent = '🚨 SPRINT TO HIGH SIDE & SPAM HEAVE!';
+    } else {
+      if (grabLabel && grabLabel.textContent === '💪 HEAVE SHIP!') {
+        grabLabel.textContent = 'GRAB / CAST';
+        if (grabSub) grabSub.textContent = 'Tap or Hold';
+        if (statusText) statusText.textContent = '🎣 WALK TO RAILING OR STATIONS';
+      }
+    }
   }
 
   private startInputLoop(): void {
