@@ -18,7 +18,13 @@ export default defineConfig({
   },
   build: {
     outDir: '../dist',
-    emptyOutDir: true
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'client/index.html'),
+        controller: path.resolve(__dirname, 'client/controller.html')
+      }
+    }
   },
   resolve: {
     alias: {

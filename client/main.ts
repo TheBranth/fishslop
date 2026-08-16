@@ -14,6 +14,7 @@ export class GameApp {
   private isAudioEnabled: boolean = true;
   private keysDown: Set<string> = new Set();
   private lastTime: number = performance.now();
+  private channel: BroadcastChannel | null = null;
 
   constructor() {
     this.canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
@@ -23,9 +24,31 @@ export class GameApp {
     this.minigameController = new MinigameController(this.canvas, this.soundSystem);
 
     this.setupEventListeners();
+    this.setupBroadcastBus();
     this.setupEngineCallbacks();
     this.populateFishopedia();
     this.initLoop();
+  }
+
+  private setupBroadcastBus(): void {
+    try {
+      this.channel = new BroadcastChannel('friendslop_game_bus');
+      this.channel.onmessage = (event) => {
+        const { type, playerId, input, crateId } = event.data;
+
+        if (type === 'PLAYER_INPUT') {
+          if (playerId === 'p1') {
+            this.engine.p1Input = { ...input };
+          } else if (playerId === 'p2') {
+            this.engine.p2Input = { ...input };
+          }
+        } else if (type === 'VOTE_DRAFT_CRATE') {
+          this.engine.voteForDraftCrate(playerId, crateId);
+        }
+      };
+    } catch (e) {
+      console.warn('BroadcastChannel error:', e);
+    }
   }
 
   private setupEventListeners(): void {
@@ -311,6 +334,18 @@ export class GameApp {
       this.renderer.render(this.engine.state, this.engine.oceanShadows);
       this.minigameController.renderOverlay();
 
+      if (this.channel) {
+        this.channel.postMessage({
+          type: 'HOST_STATE_UPDATE',
+          data: {
+            boatAngle: this.engine.state.boatAngle,
+            gameState: this.engine.state.gameState,
+            draftState: this.engine.state.draftState,
+            teamCash: this.engine.state.teamCash
+          }
+        });
+      }
+
       this.updateHUD();
       requestAnimationFrame(loop);
     };
@@ -378,6 +413,16 @@ export class GameApp {
 
   public toggleGaryPhone(): void {
     const modal = document.getElementById('modal-gary-phone');
+    modal?.classList.toggle('hidden');
+  }
+
+  public togglePhoneModal(): void {
+    const modal = document.getElementById('modal-phone-connect');
+    const qrImg = document.getElementById('qr-code-img') as HTMLImageElement;
+    if (qrImg) {
+      const url = `${window.location.origin}/controller.html`;
+      qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}`;
+    }
     modal?.classList.toggle('hidden');
   }
 
