@@ -54,7 +54,7 @@ export class LocalGameEngine {
   public deckFriction: number = 0.90;
   public slideMultiplier: number = 0.22;
 
-  public onEvent?: (type: string, data: any) => void;
+  public onEvent?: (type: string, data: any, extra?: any) => void;
   public onBountyUpdate?: (bounty: SecretBounty) => void;
   public onContractUpdate?: (contract: ActiveContractState) => void;
   public onDraftStart?: (draft: DredgedDraftState) => void;
@@ -530,6 +530,7 @@ export class LocalGameEngine {
         state.teamCash += item.value;
         this.levelTeamCashEarned += item.value;
         this.onEvent?.('sfx', 'ding');
+        this.onEvent?.('popup', '', { text: `+$${item.value}!`, color: '#22c55e', x: cooler.x + cooler.w / 2, y: cooler.y - 10 });
         this.addFeedMessage(`💵 Banked ${item.name} for +$${item.value}!`, 'score');
 
         // Evaluate Corporate Contract Rules & Penalties
@@ -656,6 +657,7 @@ export class LocalGameEngine {
     if (!this.state.krakenBoss) return;
     this.state.krakenBoss.currentHP = Math.max(0, this.state.krakenBoss.currentHP - amount);
     this.onEvent?.('sfx', 'explosion');
+    this.onEvent?.('popup', '', { text: `🐙 -${amount} HP!`, color: '#c084fc', x: CANVAS_WIDTH / 2, y: 130 });
     this.addFeedMessage(`💥 ${sourceName} hit Kraken for -${amount} HP! (${this.state.krakenBoss.currentHP}/1200)`, 'score');
 
     if (this.state.krakenBoss.currentHP <= 0) {
@@ -873,6 +875,7 @@ export class LocalGameEngine {
 
   private triggerElectricShock(x: number, y: number): void {
     this.onEvent?.('sfx', 'slap');
+    this.onEvent?.('popup', '', { text: `⚡ ZAP!`, color: '#fde047', x, y: y - 20 });
     this.addFeedMessage(`⚡ ZAP! Electric Ray emitted a deck shock pulse!`, 'hazard');
     this.state.players.forEach(p => {
       const dist = Math.hypot(p.x - x, p.y - y);
@@ -881,6 +884,7 @@ export class LocalGameEngine {
         p.stunTimer = 1.5;
         p.vx = (Math.random() - 0.5) * 8;
         p.vy = (Math.random() - 0.5) * 8;
+        this.onEvent?.('popup', '', { text: `💥 STUNNED!`, color: '#ef4444', x: p.x, y: p.y - 25 });
       }
     });
   }
@@ -905,6 +909,7 @@ export class LocalGameEngine {
       player.totalLegalQuotaContributed += item.value;
 
       this.onEvent?.('sfx', 'ding');
+      this.onEvent?.('popup', '', { text: `✨ +$${item.value} ${item.name}!`, color: '#facc15', x: station.x + station.w / 2, y: station.y - 15 });
       this.addFeedMessage(`✨ Prepared ${item.name} ($${item.value})! Grab & bank into Cooler.`, 'score');
     }
   }

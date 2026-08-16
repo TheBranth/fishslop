@@ -1,8 +1,10 @@
-// Web Audio Procedural Sound Synthesizer with Kitchen Minigame SFX
-
 export class SoundSystem {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
+  private isMusicPlaying: boolean = false;
+  private musicInterval: any = null;
+  private currentNoteIndex: number = 0;
+  private musicIntensity: 'normal' | 'panic' | 'boss' = 'normal';
 
   constructor() {
     // AudioContext will initialize upon first user gesture
@@ -16,6 +18,112 @@ export class SoundSystem {
     if (this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+  }
+
+  // --- Dynamic Procedural Sea Shanty Music ---
+
+  public startSeaShantyMusic(): void {
+    if (this.isMusicPlaying || this.isMuted) return;
+    this.initCtx();
+    this.isMusicPlaying = true;
+    this.currentNoteIndex = 0;
+
+    const shantyMelody = [
+      // "Drunken Sailor / Fisherman Shanty" (Frequencies in Hz)
+      { note: 293.66, dur: 0.25 }, // D4
+      { note: 293.66, dur: 0.25 }, // D4
+      { note: 293.66, dur: 0.25 }, // D4
+      { note: 293.66, dur: 0.25 }, // D4
+      { note: 329.63, dur: 0.25 }, // E4
+      { note: 349.23, dur: 0.25 }, // F4
+      { note: 392.00, dur: 0.50 }, // G4
+      { note: 440.00, dur: 0.25 }, // A4
+      { note: 392.00, dur: 0.25 }, // G4
+      { note: 349.23, dur: 0.25 }, // F4
+      { note: 329.63, dur: 0.25 }, // E4
+      { note: 293.66, dur: 0.50 }, // D4
+      { note: 261.63, dur: 0.25 }, // C4
+      { note: 293.66, dur: 0.75 }  // D4
+    ];
+
+    const bossMelody = [
+      // Boss Kraken Tension Stabs (D Minor / Tritone)
+      { note: 146.83, dur: 0.2 }, // D3
+      { note: 155.56, dur: 0.2 }, // Eb3
+      { note: 220.00, dur: 0.2 }, // A3
+      { note: 207.65, dur: 0.3 }, // Ab3
+      { note: 146.83, dur: 0.4 }, // D3
+      { note: 293.66, dur: 0.2 }, // D4
+      { note: 277.18, dur: 0.4 }  // C#4
+    ];
+
+    const tickMelody = () => {
+      if (!this.isMusicPlaying || !this.ctx || this.isMuted) return;
+
+      const isBoss = this.musicIntensity === 'boss';
+      const isPanic = this.musicIntensity === 'panic';
+      const melody = isBoss ? bossMelody : shantyMelody;
+      const item = melody[this.currentNoteIndex % melody.length];
+      this.currentNoteIndex++;
+
+      const tempoMod = isPanic ? 0.68 : isBoss ? 0.82 : 1.0;
+      const duration = item.dur * tempoMod;
+
+      this.playShantyNote(item.note, duration, isBoss);
+
+      const nextTimeMs = duration * 1000;
+      this.musicInterval = setTimeout(tickMelody, nextTimeMs);
+    };
+
+    tickMelody();
+  }
+
+  public setMusicIntensity(intensity: 'normal' | 'panic' | 'boss'): void {
+    this.musicIntensity = intensity;
+  }
+
+  public stopMusic(): void {
+    this.isMusicPlaying = false;
+    if (this.musicInterval) {
+      clearTimeout(this.musicInterval);
+      this.musicInterval = null;
+    }
+  }
+
+  private playShantyNote(freq: number, duration: number, isBoss: boolean): void {
+    if (!this.ctx || this.isMuted) return;
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const subOsc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = isBoss ? 'sawtooth' : 'triangle';
+    subOsc.type = 'sine';
+
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    subOsc.frequency.setValueAtTime(freq / 2, ctx.currentTime);
+
+    // Accordion / Nautical vibrato
+    const vibrato = ctx.createOscillator();
+    const vibratoGain = ctx.createGain();
+    vibrato.frequency.setValueAtTime(5.5, ctx.currentTime);
+    vibratoGain.gain.setValueAtTime(freq * 0.015, ctx.currentTime);
+    vibrato.connect(osc.frequency);
+    vibrato.start();
+
+    const vol = isBoss ? 0.09 : 0.07;
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration * 0.95);
+
+    osc.connect(gain);
+    subOsc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    subOsc.start();
+    osc.stop(ctx.currentTime + duration);
+    subOsc.stop(ctx.currentTime + duration);
+    vibrato.stop(ctx.currentTime + duration);
   }
 
   public play(sfxName: string): void {

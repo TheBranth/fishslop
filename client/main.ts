@@ -139,9 +139,11 @@ export class GameApp {
   }
 
   private setupEngineCallbacks(): void {
-    this.engine.onEvent = (type, soundName) => {
+    this.engine.onEvent = (type, soundName, extra) => {
       if (type === 'sfx' && this.isAudioEnabled) {
         this.soundSystem.play(soundName);
+      } else if (type === 'popup' && extra) {
+        this.renderer.addPopup(extra.text, extra.color, extra.x, extra.y);
       }
     };
 
@@ -334,6 +336,19 @@ export class GameApp {
       this.renderer.render(this.engine.state, this.engine.oceanShadows);
       this.minigameController.renderOverlay();
 
+      // Dynamic Sea Shanty Background Music Tempo Transition
+      if (this.isAudioEnabled) {
+        if (this.engine.state.gameState === 'playing') {
+          if (this.engine.levelTimeLeft <= 18) {
+            this.soundSystem.setMusicIntensity('panic');
+          } else if (this.engine.state.level.isBossLevel) {
+            this.soundSystem.setMusicIntensity('boss');
+          } else {
+            this.soundSystem.setMusicIntensity('normal');
+          }
+        }
+      }
+
       if (this.channel) {
         this.channel.postMessage({
           type: 'HOST_STATE_UPDATE',
@@ -436,6 +451,11 @@ export class GameApp {
     const btn = document.getElementById('btn-audio');
     if (btn) {
       btn.innerHTML = this.isAudioEnabled ? '<i class="fa-solid fa-volume-high text-teal-400"></i>' : '<i class="fa-solid fa-volume-xmark text-slate-500"></i>';
+    }
+    if (this.isAudioEnabled) {
+      this.soundSystem.startSeaShantyMusic();
+    } else {
+      this.soundSystem.stopMusic();
     }
   }
 

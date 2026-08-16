@@ -3,15 +3,44 @@
 import { GameRoomState, PlayerState, EntityItem, WorkStation, OceanFishShadow } from '../../shared/types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, BOAT_BOUNDS, DECK_BOUNDS } from '../../shared/constants';
 
+export interface FloatingComicPopup {
+  id: string;
+  text: string;
+  color: string;
+  x: number;
+  y: number;
+  vy: number;
+  scale: number;
+  opacity: number;
+  life: number;
+  maxLife: number;
+}
+
 export class GameRenderer {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private waveOffset: number = 0;
   public showDebugMass: boolean = true;
+  public floatingPopups: FloatingComicPopup[] = [];
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
+  }
+
+  public addPopup(text: string, color: string, x: number, y: number): void {
+    this.floatingPopups.push({
+      id: 'pop_' + Date.now() + '_' + Math.random(),
+      text,
+      color,
+      x,
+      y,
+      vy: -1.4,
+      scale: 0.5,
+      opacity: 1.0,
+      life: 0,
+      maxLife: 1.5
+    });
   }
 
   public render(state: GameRoomState, oceanShadows?: OceanFishShadow[]): void {
@@ -95,6 +124,9 @@ export class GameRenderer {
     if (state.level.isBossLevel && state.krakenBoss) {
       this.drawKrakenBossHUD(state);
     }
+
+    // 17. Floating Comic Popups (+$120 CHOWDER!, 💥 STUNNED!, 🤝 CONGA!)
+    this.drawFloatingComicPopups();
   }
 
   private drawLevelAtmosphere(state: GameRoomState): void {
@@ -554,22 +586,77 @@ export class GameRenderer {
 
   private drawPlayer(player: PlayerState, state: GameRoomState): void {
     const { ctx } = this;
+    const isMoving = Math.hypot(player.vx, player.vy) > 0.1;
+    const walkPhase = isMoving ? Math.sin(Date.now() * 0.018 + player.playerIndex) : 0;
+    const bobY = isMoving ? Math.abs(Math.sin(Date.now() * 0.018 + player.playerIndex)) * 2.5 : 0;
+
     ctx.save();
     ctx.translate(player.x, player.y);
 
+    // 1. Draw Player Shadow
     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.beginPath();
     ctx.ellipse(0, 14, 16, 7, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    // 2. Slipping / Stunned Slapstick Animation (Flipped onto back with dizzy stars!)
+    if (player.isSlipping || player.isStunned) {
+      ctx.rotate(1.3);
+
+      // Dizzy spinning stars
+      const starT = Date.now() * 0.006;
+      for (let s = 0; s < 3; s++) {
+        const starAngle = starT + (s * (Math.PI * 2 / 3));
+        const starX = Math.cos(starAngle) * 22;
+        const starY = -28 + Math.sin(starAngle) * 8;
+        ctx.fillStyle = '#facc15';
+        ctx.font = '10px Arial';
+        ctx.fillText('⭐', starX, starY);
+      }
+    }
+
+    // 3. Animated Sailor Legs (Swinging with walk cycle)
+    if (isMoving && !player.isSlipping && !player.isStunned) {
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.ellipse(-7 + walkPhase * 4, 14, 4, 3, 0, 0, Math.PI * 2);
+      ctx.ellipse(7 - walkPhase * 4, 14, 4, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 4. Sailor Torso / Head
     ctx.fillStyle = player.colorHex;
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.arc(0, 0, 16, 0, Math.PI * 2);
+    ctx.arc(0, -bobY, 16, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
+    // 5. Sailor Hat / Party Hat
+    const isConga = player.congaLeaderId || player.congaFollowerIds.length > 0;
+    if (isConga) {
+      // Festive Conga Party Cone Hat
+      ctx.fillStyle = '#ec4899';
+      ctx.beginPath();
+      ctx.moveTo(0, -32 - bobY);
+      ctx.lineTo(-8, -16 - bobY);
+      ctx.lineTo(8, -16 - bobY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath();
+      ctx.arc(0, -33 - bobY, 3, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // Classic Sailor Beanie / Cap
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-10, -18 - bobY, 20, 6);
+      ctx.fillStyle = '#0284c7';
+      ctx.fillRect(-12, -13 - bobY, 24, 3);
+    }
+
+    // 6. Directional Eyes & Pupils
     ctx.fillStyle = '#ffffff';
     let eyeOffsetX = 0;
     let eyeOffsetY = 0;
@@ -579,26 +666,28 @@ export class GameRenderer {
     if (player.facing === 'down') eyeOffsetY = 5;
 
     ctx.beginPath();
-    ctx.arc(-4 + eyeOffsetX, -2 + eyeOffsetY, 3, 0, Math.PI * 2);
-    ctx.arc(4 + eyeOffsetX, -2 + eyeOffsetY, 3, 0, Math.PI * 2);
+    ctx.arc(-4 + eyeOffsetX, -2 + eyeOffsetY - bobY, 3, 0, Math.PI * 2);
+    ctx.arc(4 + eyeOffsetX, -2 + eyeOffsetY - bobY, 3, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.fillStyle = '#0f172a';
     ctx.beginPath();
-    ctx.arc(-4 + eyeOffsetX * 1.3, -2 + eyeOffsetY * 1.3, 1.5, 0, Math.PI * 2);
-    ctx.arc(4 + eyeOffsetX * 1.3, -2 + eyeOffsetY * 1.3, 1.5, 0, Math.PI * 2);
+    ctx.arc(-4 + eyeOffsetX * 1.3, -2 + eyeOffsetY * 1.3 - bobY, 1.5, 0, Math.PI * 2);
+    ctx.arc(4 + eyeOffsetX * 1.3, -2 + eyeOffsetY * 1.3 - bobY, 1.5, 0, Math.PI * 2);
     ctx.fill();
 
+    // 7. Player Name Tag
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 10px Plus Jakarta Sans';
     ctx.textAlign = 'center';
-    ctx.fillText(player.name.substring(0, 8), 0, -22);
+    ctx.fillText(player.name.substring(0, 8), 0, -22 - bobY);
 
+    // 8. Held Item Visual
     if (player.holdingItemId) {
       const held = state.items.find(i => i.id === player.holdingItemId);
       if (held) {
-        ctx.font = '18px Arial';
-        ctx.fillText(held.emoji, 0, -34);
+        ctx.font = '20px Arial';
+        ctx.fillText(held.emoji, 0, -36 - bobY);
       }
     }
 
@@ -790,5 +879,47 @@ export class GameRenderer {
     ctx.beginPath();
     ctx.arc(centerX, boatY, 6, 0, Math.PI * 2);
     ctx.stroke();
+  }
+
+  private drawFloatingComicPopups(): void {
+    const { ctx } = this;
+    for (let i = this.floatingPopups.length - 1; i >= 0; i--) {
+      const p = this.floatingPopups[i];
+      p.life += 1 / 60;
+      p.y += p.vy;
+      p.vy *= 0.94;
+
+      // Pop-in bounce scale
+      if (p.life < 0.25) {
+        p.scale = 0.5 + (p.life / 0.25) * 0.7; // scales up to 1.2
+      } else {
+        p.scale = Math.max(0.9, 1.2 - (p.life - 0.25) * 0.3);
+      }
+
+      p.opacity = Math.max(0, 1 - (p.life / p.maxLife));
+
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.scale(p.scale, p.scale);
+      ctx.globalAlpha = p.opacity;
+
+      ctx.font = '900 16px "Plus Jakarta Sans", sans-serif';
+      ctx.textAlign = 'center';
+
+      // Thick black comic outline
+      ctx.strokeStyle = '#020617';
+      ctx.lineWidth = 4;
+      ctx.strokeText(p.text, 0, 0);
+
+      // Bright fill text
+      ctx.fillStyle = p.color;
+      ctx.fillText(p.text, 0, 0);
+
+      ctx.restore();
+
+      if (p.life >= p.maxLife) {
+        this.floatingPopups.splice(i, 1);
+      }
+    }
   }
 }
