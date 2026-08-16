@@ -1,0 +1,90 @@
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* CRT / Scanline & Nautical Styles */
+.scanline {
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+  background-size: 100% 4px;
+}
+
+.tilt-glow {
+  box-shadow: 0 0 30px -5px rgba(45, 212, 191, 0.35);
+}
+
+.danger-glow {
+  box-shadow: 0 0 35px 5px rgba(244, 63, 94, 0.45);
+}
+
+.phone-shake {
+  animation: phoneVibrate 0.35s ease-in-out infinite;
+}
+
+@keyframes phoneVibrate {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg) scale(1.02); }
+  75% { transform: rotate(3deg) scale(1.02); }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #071728; }
+::-webkit-scrollbar-thumb { background: #1e3a8a; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #2563eb; }
+
+/* Canvas responsive scaling */
+#game-canvas {
+  image-rendering: pixelated;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+}
+
+/* Layout flex helpers */
+.main-viewport {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.canvas-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.sidebar-pane {
+  width: 320px;
+  min-width: 320px;
+  max-width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  border-left: 1px solid #1e293b;
+  background-color: #0f172a;
+}
+
+/* Mobile Orientation Notice */
+@media (max-width: 900px) and (orientation: portrait) {
+  #mobile-rotate-overlay {
+    display: flex !important;
+  }
+}

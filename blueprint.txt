@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Friendslop Fishing Co. — Interactive GDD & Prototype</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=VT323&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        display: ['Fredoka', 'sans-serif'],
+                        pixel: ['VT323', 'monospace'],
+                    },
+                    colors: {
+                        ocean: {
+                            800: '#0f2b48',
+                            900: '#071728',
+                            950: '#030b14',
+                        },
+                        nautical: {
+                            gold: '#fbbf24',
+                            coral: '#f87171',
+                            teal: '#2dd4bf',
+                            rust: '#ea580c'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom animations & scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #071728; }
+        ::-webkit-scrollbar-thumb { background: #1e3a8a; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #2563eb; }
+        
+        .scanline {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 4px;
+        }
+        
+        .tilt-glow {
+            box-shadow: 0 0 25px -5px rgba(45, 212, 191, 0.3);
+        }
+
+        .phone-shake {
+            animation: phoneVibrate 0.4s ease-in-out infinite;
+        }
+
+        @keyframes phoneVibrate {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-3deg) scale(1.02); }
+            75% { transform: rotate(3deg) scale(1.02); }
+        }
+
+        canvas {
+            image-rendering: pixelated;
+        }
+    </style>
+</head>
+<body class="h-full font-sans antialiased bg-slate-950 text-slate-200 flex flex-col overflow-hidden">
+
+    <!-- Top Header Navigation -->
+    <header class="bg-slate-900/80 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center justify-between z-30 shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-teal-400 flex items-center justify-center text-slate-950 font-display font-bold text-xl shadow-lg shadow-amber-500/20">
+                <i class="fa-solid font-bold fa-fish-fins text-slate-950 text-lg"></i>
+            </div>
+            <div>
+                <div class="flex items-center space-x-2">
+                    <h1 class="font-display font-bold text-lg md:text-xl text-white tracking-wide">FRIENDSLOP FISHING CO.</h1>
+                    <span class="bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full font-semibold border border-amber-500/30">GDD v1.2</span>
+                </div>
+                <p class="text-xs text-slate-400 hidden sm:block">Dave the Diver × Overcooked Physics Slapstick Co-op</p>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 space-x-1 text-xs md:text-sm font-medium">
+            <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn px-3 py-1.5 rounded-lg text-amber-400 bg-slate-800 font-semibold shadow transition">
+                <i class="fa-solid fa-book-open mr-1.5"></i>GDD Doc
+            </button>
+            <button onclick="switchTab('sandbox')" id="tab-sandbox" class="tab-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition">
+                <i class="fa-solid fa-gamepad mr-1.5"></i>Deck Sandbox
+            </button>
+            <button onclick="switchTab('fishopedia')" id="tab-fishopedia" class="tab-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition">
+                <i class="fa-solid fa-disease mr-1.5"></i>Fishopedia
+            </button>
+            <button onclick="switchTab('shop')" id="tab-shop" class="tab-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition">
+                <i class="fa-solid fa-store mr-1.5"></i>Shop & Economy
+            </button>
+        </nav>
+
+        <!-- Quick Actions -->
+        <div class="flex items-center space-x-2">
+            <button onclick="togglePhoneModal()" class="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white font-bold text-xs px-3 py-2 rounded-xl flex items-center space-x-1.5 transition shadow-lg shadow-rose-900/40">
+                <i class="fa-solid fa-mobile-screen animate-pulse"></i>
+                <span class="hidden md:inline">Uncle Gary's App</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <!-- TAB 1: GDD DOCUMENT VIEW -->
+        <main id="view-overview" class="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 max-w-6xl mx-auto">
+            
+            <!-- Hero Banner -->
+            <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-ocean-800 to-slate-900 border border-slate-800 p-6 md:p-10 shadow-2xl">
+                <div class="absolute -right-10 -bottom-10 opacity-10 text-9xl text-teal-400 pointer-events-none">
+                    <i class="fa-solid fa-ship"></i>
+                </div>
+                <div class="max-w-2xl space-y-4 relative z-10">
+                    <div class="inline-flex items-center space-x-2 bg-teal-500/10 border border-teal-500/30 text-teal-300 text-xs px-3 py-1 rounded-full font-semibold">
+                        <i class="fa-solid fa-bolt"></i>
+                        <span>High-Stakes Co-op / Betrayal Engine</span>
+                    </div>
+                    <h2 class="font-display text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight">
+                        The "Moving Out" of Fishing Games
+                    </h2>
+                    <p class="text-slate-300 text-sm md:text-base leading-relaxed">
+                        A cozy pixel-art fishing outing that devolves into aggressive slapstick chaos, weight balance tipping, flailing electric eel ragdolls, and secret sabotage contracts.
+                    </p>
+                    <div class="flex flex-wrap gap-3 pt-2 text-xs">
+                        <span class="bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300"><strong class="text-amber-400">Players:</strong> 1-4 Co-op / Betrayal</span>
+                        <span class="bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300"><strong class="text-teal-400">Controls:</strong> WASD + Space + Mobile Web</span>
+                        <span class="bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300"><strong class="text-rose-400">Target Platform:</strong> Web / Steam</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pillars Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-slate-900/60 rounded-2xl border border-slate-800 p-5 space-y-3 hover:border-slate-700 transition">
+                    <div class="w-10 h-10 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-anchor"></i>
+                    </div>
+                    <h3 class="font-display font-bold text-lg text-white">Dynamic Boat Physics</h3>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        Every player and fish has mass. Standing on one side of the deck tilts the boat, causing unsorted fish, crates, and oil drums to slide directly into the ocean.
+                    </p>
+                </div>
+
+                <div class="bg-slate-900/60 rounded-2xl border border-slate-800 p-5 space-y-3 hover:border-slate-700 transition">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-mask"></i>
+                    </div>
+                    <h3 class="font-display font-bold text-lg text-white">Uncle Gary's Sabotage</h3>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        Public shared quotas pay into boat upgrades, but secret personal phone missions pay cold hard cash directly to your personal wallet for sabotaging teammates.
+                    </p>
+                </div>
+
+                <div class="bg-slate-900/60 rounded-2xl border border-slate-800 p-5 space-y-3 hover:border-slate-700 transition">
+                    <div class="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-fire"></i>
+                    </div>
+                    <h3 class="font-display font-bold text-lg text-white">Logistical Escalation</h3>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        Start on a 2-person rowboat sorting guppies, and scale up to 8-station factory barges preparing Kraken Calamari while dodging volcanic bombfish.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Technical Architecture Section -->
+            <div class="bg-slate-900/60 rounded-3xl border border-slate-800 p-6 md:p-8 space-y-6">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-display font-bold text-xl text-white flex items-center">
+                        <i class="fa-solid fa-network-wired text-amber-400 mr-2.5"></i>Technical Architecture & Network Stack
+                    </h3>
+                    <span class="text-xs text-slate-400 font-mono">WebRTC / Rapier2D / Phaser3</span>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                        <div class="font-semibold text-teal-400 flex items-center">
+                            <i class="fa-solid fa-microchip mr-2"></i>Physics & Rendering Engine
+                        </div>
+                        <p class="text-xs text-slate-400">
+                            <strong>Phaser 3 / Pixi.js</strong> for isometric 2.5D depth sorting, paired with <strong>Rapier2D (WASM)</strong> for deterministic ragdoll collisions, rope tension, and dynamic center-of-mass boat tipping.
+                        </p>
+                    </div>
+
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                        <div class="font-semibold text-amber-400 flex items-center">
+                            <i class="fa-solid fa-wifi mr-2"></i>Networking & Matchmaking
+                        </div>
+                        <p class="text-xs text-slate-400">
+                            <strong>Playroom SDK / Colyseus.io</strong> handling peer-to-peer WebRTC DataChannels for ultra-low latency movement, with 4-letter room codes (`FISH`) for instant mobile phone controller pairing.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Area Progression Timeline -->
+            <div class="bg-slate-900/60 rounded-3xl border border-slate-800 p-6 md:p-8 space-y-6">
+                <h3 class="font-display font-bold text-xl text-white flex items-center">
+                    <i class="fa-solid fa-map-location-dot text-teal-400 mr-2.5"></i>World & Area Escalation Roadmap
+                </h3>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3 relative overflow-hidden">
+                        <div class="text-xs font-mono font-bold text-teal-400 uppercase tracking-wider">Area 01</div>
+                        <h4 class="font-display font-bold text-lg text-white">Sweetwater Pond</h4>
+                        <p class="text-xs text-slate-400">Wooden Rowboat. Minimal space. Teaches weight balance tipping and 2-person turtle mashing.</p>
+                        <div class="text-xs bg-slate-900 px-2.5 py-1 rounded-md text-amber-300 font-mono">Rowboat Chaos</div>
+                    </div>
+
+                    <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3 relative overflow-hidden">
+                        <div class="text-xs font-mono font-bold text-blue-400 uppercase tracking-wider">Area 02</div>
+                        <h4 class="font-display font-bold text-lg text-white">Industrial Coast</h4>
+                        <p class="text-xs text-slate-400">Diesel Trawler. Slippery eel slime trails, engine smoking breakdowns, fillet knife stations.</p>
+                        <div class="text-xs bg-slate-900 px-2.5 py-1 rounded-md text-blue-300 font-mono">Factory Floor</div>
+                    </div>
+
+                    <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3 relative overflow-hidden">
+                        <div class="text-xs font-mono font-bold text-purple-400 uppercase tracking-wider">Area 03</div>
+                        <h4 class="font-display font-bold text-lg text-white">Bioluminescent Abyss</h4>
+                        <p class="text-xs text-slate-400">Split Catamaran boat connected by rope bridge. Flash freezers, sonar radar, item throwing over ocean gaps.</p>
+                        <div class="text-xs bg-slate-900 px-2.5 py-1 rounded-md text-purple-300 font-mono">Split-Deck Panic</div>
+                    </div>
+
+                    <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3 relative overflow-hidden border-rose-500/30">
+                        <div class="text-xs font-mono font-bold text-rose-400 uppercase tracking-wider">Area 04</div>
+                        <h4 class="font-display font-bold text-lg text-white">Magma Caldera</h4>
+                        <p class="text-xs text-slate-400">Mega-Barge. Volcanic bombfish on 5s timers, deep fryers, and the multi-stage Kraken boss encounter.</p>
+                        <div class="text-xs bg-slate-900 px-2.5 py-1 rounded-md text-rose-300 font-mono">Eldritch Meltdown</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- The Kraken Boss Section -->
+            <div class="bg-gradient-to-r from-purple-950/60 via-slate-900 to-rose-950/60 rounded-3xl border border-rose-500/30 p-6 md:p-8 space-y-6">
+                <div class="flex items-center space-x-3">
+                    <span class="text-3xl">🦑</span>
+                    <div>
+                        <h3 class="font-display font-bold text-2xl text-rose-400">THE ENDGAME FISH: "The Gorgonzola of the Abyss"</h3>
+                        <p class="text-xs text-slate-400">Final mission multi-stage boss encounter where quota is replaced with recipe assembly during vessel sink.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                    <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                        <div class="font-bold text-amber-400">Stage 1: Quad-Hook Tether</div>
+                        <p class="text-slate-400">All 4 players must cast into the whirlpool simultaneously to hook tentacles without crossing lines.</p>
+                    </div>
+                    <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                        <div class="font-bold text-rose-400">Stage 2: Deck Breach</div>
+                        <p class="text-slate-400">Tentacles smash through floor planks, stealing cooler crates and slapping players off the boat.</p>
+                    </div>
+                    <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                        <div class="font-bold text-teal-400">Stage 3: Titanic Haul</div>
+                        <p class="text-slate-400">4-person conga line lock-in QTE. Boat tilts 30 degrees backward as loose items slide into the mouth.</p>
+                    </div>
+                    <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                        <div class="font-bold text-purple-400">Stage 4: Calamari Recipe</div>
+                        <p class="text-slate-400">Chop 3 tentacles, deep-fry giant eyeball, steam brain core, and fire off VIP Delivery Cannon!</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- TAB 2: INTERACTIVE DECK PHYSICS SANDBOX -->
+        <main id="view-sandbox" class="hidden flex-1 flex flex-col md:flex-row overflow-hidden">
+            
+            <!-- Physics Simulation Canvas Area -->
+            <div class="flex-1 bg-ocean-950 flex flex-col justify-between p-4 relative overflow-hidden select-none">
+                
+                <!-- Canvas Bar overlay -->
+                <div class="flex items-center justify-between z-10 bg-slate-900/90 backdrop-blur px-4 py-2.5 rounded-2xl border border-slate-800 shadow-xl">
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 rounded-full bg-emerald-500 animate-ping"></span>
+                            <span class="font-display font-bold text-sm text-white">Boat Balance Tilt Simulation</span>
+                        </div>
+                        <span id="boat-angle-indicator" class="font-mono text-xs text-amber-400 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">Tilt: 0.0° (Stable)</span>
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                        <button onclick="spawnFish('guppy')" class="bg-teal-600 hover:bg-teal-500 text-white text-xs px-2.5 py-1.5 rounded-lg font-medium transition">
+                            + Spawn Guppy
+                        </button>
+                        <button onclick="spawnFish('tuna')" class="bg-amber-600 hover:bg-amber-500 text-white text-xs px-2.5 py-1.5 rounded-lg font-medium transition">
+                            + Butter Tuna
+                        </button>
+                        <button onclick="spawnFish('bombfish')" class="bg-rose-600 hover:bg-rose-500 text-white text-xs px-2.5 py-1.5 rounded-lg font-medium transition">
+                            + Bombfish 💣
+                        </button>
+                        <button onclick="resetSandbox()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-2.5 py-1.5 rounded-lg font-medium transition">
+                            <i class="fa-solid fa-rotate-left mr-1"></i>Reset
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2D Canvas Container -->
+                <div class="flex-1 flex items-center justify-center relative my-2">
+                    <canvas id="deck-canvas" width="800" height="480" class="rounded-2xl border border-slate-800 shadow-2xl bg-slate-900 max-w-full max-h-full"></canvas>
+                </div>
+
+                <!-- Controls & HUD Footer -->
+                <div class="z-10 bg-slate-900/90 backdrop-blur px-4 py-3 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div class="flex items-center space-x-4">
+                        <div>
+                            <span class="text-slate-400">Player 1 (Blue):</span> 
+                            <kbd class="bg-slate-800 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-mono">WASD</kbd> Move 
+                            <kbd class="bg-slate-800 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-mono">SPACE</kbd> Grab/Interact
+                        </div>
+                        <div>
+                            <span class="text-slate-400">Player 2 (Yellow):</span> 
+                            <kbd class="bg-slate-800 text-teal-300 px-1.5 py-0.5 rounded border border-slate-700 font-mono">ARROWS</kbd> Move 
+                            <kbd class="bg-slate-800 text-teal-300 px-1.5 py-0.5 rounded border border-slate-700 font-mono">ENTER</kbd> Grab/Interact
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3 text-slate-300 font-mono">
+                        <div>Cooler Stock: <span id="cooler-count" class="text-teal-400 font-bold">0</span></div>
+                        <div>Overboard: <span id="overboard-count" class="text-rose-400 font-bold">0</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Physics Log & Controls Panel -->
+            <div class="w-full md:w-80 bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 p-4 flex flex-col space-y-4 overflow-y-auto shrink-0">
+                <h3 class="font-display font-bold text-white text-base flex items-center">
+                    <i class="fa-solid fa-sliders text-teal-400 mr-2"></i>Physics Adjuster
+                </h3>
+
+                <!-- Controls sliders -->
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <div class="flex justify-between text-slate-300 mb-1">
+                            <span>Deck Friction / Slime</span>
+                            <span id="val-friction" class="font-mono text-teal-400">0.92</span>
+                        </div>
+                        <input type="range" id="slider-friction" min="0.80" max="0.99" step="0.01" value="0.92" class="w-full accent-teal-400 bg-slate-800 rounded-lg">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-slate-300 mb-1">
+                            <span>Boat Tilt Sensitivity</span>
+                            <span id="val-tilt" class="font-mono text-amber-400">1.0x</span>
+                        </div>
+                        <input type="range" id="slider-tilt" min="0.2" max="3.0" step="0.1" value="1.0" class="w-full accent-amber-400 bg-slate-800 rounded-lg">
+                    </div>
+                </div>
+
+                <div class="bg-slate-950 rounded-xl p-3 border border-slate-800 space-y-2 flex-1 flex flex-col">
+                    <div class="font-bold text-xs text-slate-400 uppercase tracking-wider flex justify-between items-center">
+                        <span>Live Physics Feed</span>
+                        <span class="w-2 h-2 rounded-full bg-teal-400 animate-ping"></span>
+                    </div>
+                    <div id="physics-log" class="font-mono text-[10px] text-slate-400 space-y-1 overflow-y-auto flex-1 h-32">
+                        <div>> Deck Physics Engine Ready</div>
+                        <div>> Standing on Port/Starboard tilts boat</div>
+                        <div>> Cooler box stores sorted fish</div>
+                    </div>
+                </div>
+
+                <button onclick="triggerGangplankScramble()" class="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-slate-950 font-display font-bold py-2.5 rounded-xl shadow-lg shadow-amber-500/20 text-xs transition">
+                    🏆 Simulate Gangplank Scramble!
+                </button>
+            </div>
+        </main>
+
+        <!-- TAB 3: FISHOPEDIA DATABASE -->
+        <main id="view-fishopedia" class="hidden flex-1 overflow-y-auto p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 class="font-display font-bold text-2xl md:text-3xl text-white">The Fishopedia & Processing Pipeline</h2>
+                    <p class="text-xs md:text-sm text-slate-400">Every species has distinct deck behaviors, minigames, and processing value multipliers.</p>
+                </div>
+                
+                <!-- Tier Filter Buttons -->
+                <div class="flex flex-wrap gap-1.5 text-xs">
+                    <button onclick="filterFish('all')" class="fish-filter-btn px-3 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-bold">All Species</button>
+                    <button onclick="filterFish('T1')" class="fish-filter-btn px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700">Tier 1</button>
+                    <button onclick="filterFish('T2')" class="fish-filter-btn px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700">Tier 2</button>
+                    <button onclick="filterFish('T3')" class="fish-filter-btn px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700">Tier 3</button>
+                    <button onclick="filterFish('T4')" class="fish-filter-btn px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700">Tier 4 / Boss</button>
+                </div>
+            </div>
+
+            <!-- Fish Cards Grid -->
+            <div id="fish-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Injected dynamically via JS -->
+            </div>
+        </main>
+
+        <!-- TAB 4: SHOP & ECONOMY SIMULATOR -->
+        <main id="view-shop" class="hidden flex-1 overflow-y-auto p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 class="font-display font-bold text-2xl md:text-3xl text-white">Uncle Gary's Nautical Depot</h2>
+                    <p class="text-xs md:text-sm text-slate-400">Balance team shared funds for vessel upgrades vs private personal cash for black market sabotage.</p>
+                </div>
+
+                <div class="flex items-center space-x-4 bg-slate-900 border border-slate-800 p-3 rounded-2xl text-xs">
+                    <div>
+                        <span class="text-slate-400 block">Team Funds:</span>
+                        <span id="shop-team-cash" class="font-mono text-base font-bold text-teal-400">$650</span>
+                    </div>
+                    <div class="h-8 w-px bg-slate-800"></div>
+                    <div>
+                        <span class="text-slate-400 block">Your Private Cash:</span>
+                        <span id="shop-user-cash" class="font-mono text-base font-bold text-amber-400">$220</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <!-- Counter 1: Team Upgrades -->
+                <div class="bg-slate-900/60 rounded-3xl border border-slate-800 p-6 space-y-4">
+                    <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                        <h3 class="font-display font-bold text-lg text-teal-400 flex items-center">
+                            <i class="fa-solid fa-ship mr-2"></i>Team Boat Upgrades (Public Budget)
+                        </h3>
+                        <span class="text-xs text-slate-400">Paid from Quota</span>
+                    </div>
+
+                    <div class="space-y-3" id="team-shop-items">
+                        <!-- Upgrades rendered dynamically -->
+                    </div>
+                </div>
+
+                <!-- Counter 2: Black Market Sabotage -->
+                <div class="bg-slate-900/60 rounded-3xl border border-slate-800 p-6 space-y-4">
+                    <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                        <h3 class="font-display font-bold text-lg text-amber-400 flex items-center">
+                            <i class="fa-solid fa-user-ninja mr-2"></i>Black Market Alley (Personal Cash)
+                        </h3>
+                        <span class="text-xs text-slate-400">Sabotage Gadgets</span>
+                    </div>
+
+                    <div class="space-y-3" id="personal-shop-items">
+                        <!-- Personal items rendered dynamically -->
+                    </div>
+                </div>
+            </div>
+        </main>
+
+    </div>
+
+    <!-- UNCLE GARY'S DUTY APP MODAL (RETRO FLIP PHONE) -->
+    <div id="phone-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        
+        <div class="relative w-full max-w-sm bg-slate-900 border-4 border-slate-700 rounded-3xl p-5 shadow-2xl space-y-4 scanline overflow-hidden">
+            
+            <!-- Phone Speaker & Camera Notch -->
+            <div class="flex justify-center items-center space-x-2 pb-2">
+                <div class="w-12 h-1.5 bg-slate-800 rounded-full"></div>
+                <div class="w-3 h-3 bg-slate-800 rounded-full"></div>
+            </div>
+
+            <!-- Phone Screen -->
+            <div class="bg-emerald-950/90 border-2 border-emerald-500/40 rounded-2xl p-4 font-mono text-emerald-300 space-y-4 shadow-inner">
+                <div class="flex items-center justify-between border-b border-emerald-500/30 pb-2 text-xs">
+                    <span class="font-bold tracking-widest uppercase">GARY-OS v3.2</span>
+                    <span id="phone-clock">06:00 AM</span>
+                </div>
+
+                <div class="space-y-1">
+                    <div class="text-[10px] text-emerald-400/70 font-bold uppercase tracking-wider">Public Team Contract</div>
+                    <div id="phone-public-mission" class="text-xs font-bold bg-emerald-900/40 p-2 rounded border border-emerald-500/20 text-emerald-200">
+                        Target: Catch & Sell $600 worth of Pixel Guppies
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <div class="text-[10px] text-rose-400/90 font-bold uppercase tracking-wider flex items-center">
+                        <i class="fa-solid fa-user-secret mr-1"></i>SECRET BOUNTY (YOU ONLY)
+                    </div>
+                    <div id="phone-secret-mission" class="text-xs bg-rose-950/60 p-2.5 rounded border border-rose-500/40 text-rose-200 space-y-1">
+                        <div class="font-bold text-rose-300" id="secret-title">Agent Yellow:</div>
+                        <p id="secret-desc" class="text-[11px] leading-relaxed">"Steal 2 raw fish directly from Player 1's hands and drop them into the ocean."</p>
+                        <div id="secret-reward" class="text-[10px] text-amber-300 font-bold pt-1">+ $150 Private Cash</div>
+                    </div>
+                </div>
+
+                <div class="text-[10px] text-emerald-500/80 text-center italic pt-1">
+                    Keep your screen hidden from your crewmates!
+                </div>
+            </div>
+
+            <!-- Phone Control Buttons -->
+            <div class="grid grid-cols-3 gap-2 pt-2 text-xs">
+                <button onclick="rerollBounty()" class="col-span-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2 rounded-xl border border-slate-700 transition flex items-center justify-center">
+                    <i class="fa-solid fa-dice mr-1.5 text-amber-400"></i> Reroll Bounty
+                </button>
+                <button onclick="togglePhoneModal()" class="bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 rounded-xl transition">
+                    Close
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Global Application State
+        const state = {
+            activeTab: 'overview',
+            teamCash: 650,
+            userCash: 220,
+            coolerCount: 0,
+            overboardCount: 0,
+            boatAngle: 0,
+            friction: 0.92,
+            tiltSensitivity: 1.0,
+            physicsLogs: [],
+            players: [],
+            fishes: [],
+            coolerBox: { x: 350, y: 160, w: 100, h: 60 }
+        };
+
+        // Fish Database for Fishopedia & Spawning
+        const FISH_DATABASE = [
+            {
+                id: 'guppy',
+                name: 'Pixel Guppy',
+                tier: 'T1',
+                emoji: '🐟',
+                behavior: 'Standard flopper. Harmless deck flailer.',
+                minigame: 'Precision Green Zone',
+                processing: 'Direct Sale / Fillet',
+                basePrice: 10,
+                color: '#38bdf8'
+            },
+            {
+                id: 'boot',
+                name: 'Old Rubber Boot',
+                tier: 'T1',
+                emoji: '🥾',
+                behavior: 'Heavy deadweight block. Trips sprinting players.',
+                minigame: 'Instant Reel',
+                processing: 'Deep Fryer (Cursed Food)',
+                basePrice: 5,
+                color: '#78350f'
+            },
+            {
+                id: 'turtle',
+                name: 'Grumpy Turtle',
+                tier: 'T1',
+                emoji: '🐢',
+                behavior: 'Snaps at nearby ankles. Bites knock players over.',
+                minigame: 'Dual-Anchor Mashing',
+                processing: 'Boil / Turtle Soup Pot',
+                basePrice: 35,
+                color: '#15803d'
+            },
+            {
+                id: 'tuna',
+                name: 'Butter Tuna',
+                tier: 'T2',
+                emoji: '🧈',
+                behavior: 'Leaves slippery grease trail across deck tiles.',
+                minigame: 'Directional Thrash',
+                processing: 'Fillet ➔ Sushi Roll',
+                basePrice: 80,
+                color: '#f59e0b'
+            },
+            {
+                id: 'eel',
+                name: 'Slime Eel',
+                tier: 'T2',
+                emoji: '🐍',
+                behavior: 'Forces holder to drop item every 2 seconds.',
+                minigame: 'Lullaby Typing',
+                processing: 'Deep Fryer',
+                basePrice: 120,
+                color: '#10b981'
+            },
+            {
+                id: 'ray',
+                name: 'Electric Ray',
+                tier: 'T3',
+                emoji: '⚡',
+                behavior: 'Periodically shocks wet deck tiles, paralyzing crew.',
+                minigame: 'Precision Timing',
+                processing: 'Fillet (Insulated Gloves)',
+                basePrice: 300,
+                color: '#eab308'
+            },
+            {
+                id: 'bombfish',
+                name: 'Volcanic Bombfish',
+                tier: 'T4',
+                emoji: '💣',
+                behavior: 'Ticks down 5s explosion timer when landed.',
+                minigame: 'Rapid Reel',
+                processing: 'Dropkick into Fryer / Ocean',
+                basePrice: 500,
+                color: '#f43f5e'
+            },
+            {
+                id: 'kraken',
+                name: 'Eldritch Kraken',
+                tier: 'T4',
+                emoji: '🐙',
+                behavior: 'Boss. Tentacles breach deck and destroy stations.',
+                minigame: 'Quad-Hook Synchronized Tether',
+                processing: 'Kraken Calamari + Eyeball Fry',
+                basePrice: 2500,
+                color: '#a855f7'
+            }
+        ];
+
+        // Secret bounties list
+        const SECRET_BOUNTIES = [
+            {
+                title: "Saboteur Yellow:",
+                desc: "Steal 2 raw fish directly from Player 1's hands and throw them into the sea.",
+                reward: "+$150 Private Cash"
+            },
+            {
+                title: "Arsonist Red:",
+                desc: "Make the Rice Cooker boil over and catch fire at least twice before noon.",
+                reward: "+$200 Private Cash"
+            },
+            {
+                title: "Greedy Pirate:",
+                desc: "Ensure you are holding the Gary Satchel when the dock timer hits 0:00.",
+                reward: "+$250 Private Cash"
+            },
+            {
+                title: "Ankle Biter:",
+                desc: "Drop a Grumpy Turtle right behind Player 2 while they operate the Sonar Radar.",
+                reward: "+$120 Private Cash"
+            }
+        ];
+
+        function switchTab(tabId) {
+            state.activeTab = tabId;
+            document.querySelectorAll('main').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('text-amber-400', 'bg-slate-800', 'font-semibold', 'shadow');
+                btn.classList.add('text-slate-400');
+            });
+
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            activeBtn.classList.add('text-amber-400', 'bg-slate-800', 'font-semibold', 'shadow');
+            activeBtn.classList.remove('text-slate-400');
+
+            if (tabId === 'sandbox') {
+                initCanvasIfNeeded();
+            }
+        }
+
+        function togglePhoneModal() {
+            const modal = document.getElementById('phone-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        function rerollBounty() {
+            const randomBounty = SECRET_BOUNTIES[Math.floor(Math.random() * SECRET_BOUNTIES.length)];
+            document.getElementById('secret-title').textContent = randomBounty.title;
+            document.getElementById('secret-desc').textContent = randomBounty.desc;
+            document.getElementById('secret-reward').textContent = randomBounty.reward;
+            
+            // Audio effect trigger
+            playSFX('beep');
+        }
+
+        function filterFish(tier) {
+            const grid = document.getElementById('fish-grid');
+            grid.innerHTML = '';
+
+            const filtered = tier === 'all' 
+                ? FISH_DATABASE 
+                : FISH_DATABASE.filter(f => f.tier === tier);
+
+            filtered.forEach(fish => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-900/80 rounded-2xl border border-slate-800 p-5 space-y-3 relative overflow-hidden hover:border-slate-700 transition";
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-3xl">${fish.emoji}</span>
+                        <span class="text-xs font-mono font-bold px-2 py-0.5 rounded border" style="color: ${fish.color}; border-color: ${fish.color}40; background: ${fish.color}10">
+                            ${fish.tier}
+                        </span>
+                    </div>
+                    <div>
+                        <h4 class="font-display font-bold text-lg text-white">${fish.name}</h4>
+                        <p class="text-xs text-slate-400 leading-relaxed">${fish.behavior}</p>
+                    </div>
+                    <div class="pt-2 border-t border-slate-800/80 grid grid-cols-2 gap-2 text-[11px]">
+                        <div>
+                            <span class="text-slate-500 block">Minigame:</span>
+                            <span class="text-slate-300 font-medium">${fish.minigame}</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block">Base Value:</span>
+                            <span class="text-amber-400 font-bold font-mono">$${fish.basePrice}</span>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSFX(type) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'beep') {
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'splash') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.3);
+            }
+        }
+
+        let canvas, ctx, canvasInitialized = false;
+
+        function initCanvasIfNeeded() {
+            if (canvasInitialized) return;
+            canvasInitialized = true;
+
+            canvas = document.getElementById('deck-canvas');
+            ctx = canvas.getContext('2d');
+
+            // Initialize Player 1 & Player 2
+            state.players = [
+                { id: 1, x: 250, y: 240, vx: 0, vy: 0, color: '#38bdf8', label: 'P1', holding: null, keys: {} },
+                { id: 2, x: 550, y: 240, vx: 0, vy: 0, color: '#f59e0b', label: 'P2', holding: null, keys: {} }
+            ];
+
+            // Add initial fish on deck
+            spawnFish('guppy');
+            spawnFish('tuna');
+
+            // Key Listeners
+            window.addEventListener('keydown', e => handleKey(e, true));
+            window.addEventListener('keyup', e => handleKey(e, false));
+
+            // Sliders listeners
+            document.getElementById('slider-friction').addEventListener('input', e => {
+                state.friction = parseFloat(e.target.value);
+                document.getElementById('val-friction').textContent = state.friction.toFixed(2);
+            });
+
+            document.getElementById('slider-tilt').addEventListener('input', e => {
+                state.tiltSensitivity = parseFloat(e.target.value);
+                document.getElementById('val-tilt').textContent = state.tiltSensitivity.toFixed(1) + 'x';
+            });
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function handleKey(e, isDown) {
+            const p1 = state.players[0];
+            const p2 = state.players[1];
+
+            // Player 1 WASD
+            if (e.code === 'KeyW') p1.keys.up = isDown;
+            if (e.code === 'KeyS') p1.keys.down = isDown;
+            if (e.code === 'KeyA') p1.keys.left = isDown;
+            if (e.code === 'KeyD') p1.keys.right = isDown;
+            if (e.code === 'Space' && isDown) interactPlayer(p1);
+
+            // Player 2 Arrows
+            if (e.code === 'ArrowUp') p2.keys.up = isDown;
+            if (e.code === 'ArrowDown') p2.keys.down = isDown;
+            if (e.code === 'ArrowLeft') p2.keys.left = isDown;
+            if (e.code === 'ArrowRight') p2.keys.right = isDown;
+            if (e.code === 'Enter' && isDown) interactPlayer(p2);
+        }
+
+        function spawnFish(type) {
+            const template = FISH_DATABASE.find(f => f.id === type) || FISH_DATABASE[0];
+            state.fishes.push({
+                id: Math.random(),
+                type: template.id,
+                name: template.name,
+                emoji: template.emoji,
+                x: 350 + (Math.random() * 100 - 50),
+                y: 200 + (Math.random() * 80 - 40),
+                vx: (Math.random() - 0.5) * 4,
+                vy: (Math.random() - 0.5) * 4,
+                isHeld: false
+            });
+            logPhysics(`Spawned ${template.name} onto deck.`);
+        }
+
+        function interactPlayer(p) {
+            if (p.holding) {
+                // Drop item
+                p.holding.isHeld = false;
+                p.holding.vx = p.vx * 1.5;
+                p.holding.vy = p.vy * 1.5;
+                logPhysics(`${p.label} dropped ${p.holding.name}`);
+                p.holding = null;
+            } else {
+                // Pickup nearest fish
+                let nearest = null;
+                let minDist = 40;
+                state.fishes.forEach(f => {
+                    if (f.isHeld) return;
+                    const d = Math.hypot(f.x - p.x, f.y - p.y);
+                    if (d < minDist) {
+                        minDist = d;
+                        nearest = f;
+                    }
+                });
+
+                if (nearest) {
+                    nearest.isHeld = true;
+                    p.holding = nearest;
+                    logPhysics(`${p.label} grabbed ${nearest.name}`);
+                }
+            }
+        }
+
+        function logPhysics(msg) {
+            const feed = document.getElementById('physics-log');
+            if (!feed) return;
+            const div = document.createElement('div');
+            div.textContent = `> ${msg}`;
+            feed.appendChild(div);
+            feed.scrollTop = feed.scrollHeight;
+        }
+
+        function triggerGangplankScramble() {
+            logPhysics("🚨 GANGPLANK SCRAMBLE STARTED! 5 SECONDS TO DOCK!");
+            playSFX('splash');
+            state.fishes.forEach(f => {
+                f.vx = (Math.random() - 0.5) * 15;
+                f.vy = (Math.random() - 0.5) * 15;
+            });
+        }
+
+        function resetSandbox() {
+            state.fishes = [];
+            state.coolerCount = 0;
+            state.overboardCount = 0;
+            document.getElementById('cooler-count').textContent = '0';
+            document.getElementById('overboard-count').textContent = '0';
+            spawnFish('guppy');
+            spawnFish('tuna');
+            logPhysics("Sandbox Reset.");
+        }
+
+        function gameLoop() {
+            if (state.activeTab === 'sandbox' && ctx) {
+                updatePhysics();
+                renderCanvas();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updatePhysics() {
+            const speed = 0.8;
+
+            // Player movements
+            state.players.forEach(p => {
+                if (p.keys.up) p.vy -= speed;
+                if (p.keys.down) p.vy += speed;
+                if (p.keys.left) p.vx -= speed;
+                if (p.keys.right) p.vx += speed;
+
+                p.vx *= state.friction;
+                p.vy *= state.friction;
+
+                p.x += p.vx;
+                p.y += p.vy;
+
+                // Deck boundary
+                p.x = Math.max(120, Math.min(680, p.x));
+                p.y = Math.max(100, Math.min(380, p.y));
+
+                if (p.holding) {
+                    p.holding.x = p.x;
+                    p.holding.y = p.y - 20;
+                }
+            });
+
+            // Calculate boat center of mass & tilt
+            let portMass = 0;
+            let starboardMass = 0;
+
+            const allObjects = [...state.players, ...state.fishes];
+            allObjects.forEach(obj => {
+                if (obj.x < 400) portMass += 1;
+                else starboardMass += 1;
+            });
+
+            const massDiff = (starboardMass - portMass);
+            state.boatAngle = massDiff * 1.5 * state.tiltSensitivity;
+
+            document.getElementById('boat-angle-indicator').textContent = 
+                `Tilt: ${state.boatAngle.toFixed(1)}° (${state.boatAngle > 0 ? 'Starboard' : state.boatAngle < 0 ? 'Port' : 'Stable'})`;
+
+            // Apply gravity slide based on tilt angle
+            const slideForce = (state.boatAngle / 10);
+
+            state.fishes.forEach(f => {
+                if (!f.isHeld) {
+                    f.vx += slideForce;
+                    f.vx *= state.friction;
+                    f.vy *= state.friction;
+
+                    f.x += f.vx;
+                    f.y += f.vy;
+
+                    // Cooler collision check
+                    const cb = state.coolerBox;
+                    if (f.x > cb.x && f.x < cb.x + cb.w && f.y > cb.y && f.y < cb.y + cb.h) {
+                        state.coolerCount++;
+                        document.getElementById('cooler-count').textContent = state.coolerCount;
+                        logPhysics(`SECURED! ${f.name} placed in Cooler.`);
+                        playSFX('beep');
+                        f.x = -999; // Remove
+                    }
+
+                    // Overboard check
+                    if (f.x < 100 || f.x > 700 || f.y < 80 || f.y > 400) {
+                        if (f.x !== -999) {
+                            state.overboardCount++;
+                            document.getElementById('overboard-count').textContent = state.overboardCount;
+                            logPhysics(`SPLASH! ${f.name} fell overboard!`);
+                            playSFX('splash');
+                            f.x = -999;
+                        }
+                    }
+                }
+            });
+
+            state.fishes = state.fishes.filter(f => f.x !== -999);
+        }
+
+        function renderCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Water background
+            ctx.fillStyle = '#071728';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Save transform for boat tilt
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate((state.boatAngle * Math.PI) / 180);
+            ctx.translate(-canvas.width / 2, -canvas.height / 2);
+
+            // Draw Boat Hull
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.roundRect(100, 80, 600, 320, 40);
+            ctx.fill();
+            ctx.stroke();
+
+            // Deck Wood Planks Lines
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 2;
+            for (let y = 110; y < 390; y += 30) {
+                ctx.beginPath();
+                ctx.moveTo(120, y);
+                ctx.lineTo(680, y);
+                ctx.stroke();
+            }
+
+            // Draw Cooler Box Station
+            const cb = state.coolerBox;
+            ctx.fillStyle = '#0284c7';
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(cb.x, cb.y, cb.w, cb.h, 12);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 12px Plus Jakarta Sans';
+            ctx.textAlign = 'center';
+            ctx.fillText('COOLER 🧊', cb.x + cb.w / 2, cb.y + cb.h / 2 + 4);
+
+            // Render Fishes
+            state.fishes.forEach(f => {
+                if (!f.isHeld) {
+                    ctx.font = '24px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(f.emoji, f.x, f.y);
+                }
+            });
+
+            // Render Players
+            state.players.forEach(p => {
+                // Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.beginPath();
+                ctx.ellipse(p.x, p.y + 12, 16, 8, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Body
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 16, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Label
+                ctx.fillStyle = '#0f172a';
+                ctx.font = 'bold 10px Plus Jakarta Sans';
+                ctx.textAlign = 'center';
+                ctx.fillText(p.label, p.x, p.y + 3);
+
+                // Held item offset render
+                if (p.holding) {
+                    ctx.font = '20px sans-serif';
+                    ctx.fillText(p.holding.emoji, p.x, p.y - 22);
+                }
+            });
+
+            ctx.restore();
+        }
+
+        function initShop() {
+            const teamContainer = document.getElementById('team-shop-items');
+            const personalContainer = document.getElementById('personal-shop-items');
+
+            const teamUpgrades = [
+                { name: 'Fillet Cutting Bench', cost: 150, desc: 'Doubles fish value by turning them into fillets.' },
+                { name: 'Rice Cooker & Sushi Bench', cost: 300, desc: 'Unlocks 4x value sushi assembly pipeline.' },
+                { name: 'Auto-Fisher 1000', cost: 500, desc: 'Catches random fish every 15s onto deck.' }
+            ];
+
+            const personalUpgrades = [
+                { name: 'Slippery Banana Peel', cost: 50, desc: 'Place on deck to trip rival players.' },
+                { name: 'Airhorn of Distraction', cost: 100, desc: 'Interrupts nearby reel minigames.' },
+                { name: 'Greasy Boots', cost: 150, desc: 'Reduces slip duration on slime trails.' }
+            ];
+
+            teamContainer.innerHTML = teamUpgrades.map(u => `
+                <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 flex items-center justify-between">
+                    <div>
+                        <div class="font-bold text-sm text-white">${u.name}</div>
+                        <div class="text-xs text-slate-400">${u.desc}</div>
+                    </div>
+                    <button class="bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition font-mono">
+                        $${u.cost}
+                    </button>
+                </div>
+            `).join('');
+
+            personalContainer.innerHTML = personalUpgrades.map(u => `
+                <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 flex items-center justify-between">
+                    <div>
+                        <div class="font-bold text-sm text-white">${u.name}</div>
+                        <div class="text-xs text-slate-400">${u.desc}</div>
+                    </div>
+                    <button class="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-xl transition font-mono">
+                        $${u.cost}
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // Initialize on Load
+        window.onload = function() {
+            filterFish('all');
+            initShop();
+        };
+    </script>
+</body>
+</html>
