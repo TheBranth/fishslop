@@ -20,7 +20,8 @@ import {
   DECK_BOUNDS, 
   PHYSICS, 
   PLAYER_PROFILES, 
-  ROGUELITE_LEVELS 
+  ROGUELITE_LEVELS,
+  MAX_SOLO_LIFT_WEIGHT
 } from '../../shared/constants';
 import { FISH_REGISTRY } from '../../shared/fishDatabase';
 import { validateStationInteraction } from '../../shared/recipes';
@@ -97,6 +98,8 @@ export class LocalGameEngine {
           privateCash: 0,
           activeBounty: null,
           isFishing: false,
+          congaLeaderId: null,
+          congaFollowerIds: [],
           totalFishBanked: 0,
           totalDishesCooked: 0,
           totalLegalQuotaContributed: 0,
@@ -122,6 +125,8 @@ export class LocalGameEngine {
           privateCash: 0,
           activeBounty: null,
           isFishing: false,
+          congaLeaderId: null,
+          congaFollowerIds: [],
           totalFishBanked: 0,
           totalDishesCooked: 0,
           totalLegalQuotaContributed: 0,
@@ -138,6 +143,13 @@ export class LocalGameEngine {
       krakenBoss: null,
       activePerks: this.activePerks,
       capsizingTimer: 0,
+      deckPuddles: [],
+      screenShaders: {
+        greenCrtGlow: false,
+        solarEclipseDarkness: 0,
+        geigerSoundActive: false,
+        inkSplatters: []
+      },
       endgameAudit: null,
       activeContract: null
     };
@@ -240,13 +252,38 @@ export class LocalGameEngine {
         if (p.stunTimer <= 0) p.isStunned = false;
       }
 
+      // Check Deck Puddles for Slipping
+      let standingInPuddle = false;
+      state.deckPuddles.forEach(puddle => {
+        if (Math.hypot(p.x - puddle.x, p.y - puddle.y) < puddle.radius + 8) {
+          standingInPuddle = true;
+          p.isSlipping = true;
+        }
+      });
+      if (!standingInPuddle) {
+        p.isSlipping = false;
+      }
+
       if (p.isFishing) {
         this.updatePlayerFishing(p, input);
         p.vx *= 0.8;
         p.vy *= 0.8;
       } else if (!p.isStunned) {
         const hasMagneticBoots = this.activePerks.has('anti_slip');
-        const speed = (p.isSlipping && !hasMagneticBoots) ? PHYSICS.playerSpeed * 0.4 : PHYSICS.playerSpeed;
+        
+        // Conga Line & Heavy Item Strength Speed Calculation
+        let weightSpeedMod = 1.0;
+        if (p.holdingItemId) {
+          const held = state.items.find(i => i.id === p.holdingItemId);
+          if (held && held.mass > MAX_SOLO_LIFT_WEIGHT) {
+            const hasCongaHelp = p.congaFollowerIds.length > 0;
+            weightSpeedMod = hasCongaHelp ? 1.15 : 0.35; // Solo dragging is 65% slower!
+          }
+        }
+
+        const baseSpeed = (p.isSlipping && !hasMagneticBoots) ? PHYSICS.playerSpeed * 0.4 : PHYSICS.playerSpeed;
+        const speed = baseSpeed * weightSpeedMod;
+        
         p.vx += input.dx * speed * 0.3;
         p.vy += input.dy * speed * 0.3;
 
@@ -279,7 +316,29 @@ export class LocalGameEngine {
             held.vx = p.vx;
             held.vy = p.vy;
 
-            // Bombfish hot potato bounty check
+            // Slime Eel wriggle out of hands after 2.5s
+            if (held.speciesId === 'eel') {
+              held.stateTimer = (held.stateTimer || 2.5) - (1 / 60);
+              if (held.stateTimer <= 0) {
+                p.holdingItemId = null;
+                held.isHeld = false;
+                held.heldByPlayerId = null;
+                held.vx = (Math.random() - 0.5) * 6;
+                held.vy = (Math.random() - 0.5) * 6;
+                this.onEvent?.('sfx', 'slap');
+                this.addFeedMessage(`🐍 SLIPPERY! Slime Eel wriggled out of ${p.name}'s hands!`, 'hazard');
+                state.deckPuddles.push({
+                  id: 'slime_' + Date.now(),
+                  type: 'slime',
+                  x: p.x,
+                  y: p.y,
+                  radius: 16,
+                  duration: 8.0
+                });
+              }
+            }
+
+            // Bombfish hot potato fuse check
             if (held.speciesId === 'bombfish') {
               held.stateTimer = (held.stateTimer || PHYSICS.bombfishFuseSeconds) - (1 / 60);
               if (held.stateTimer <= 0) {
@@ -289,6 +348,22 @@ export class LocalGameEngine {
             }
           } else {
             p.holdingItemId = null;
+          }
+        }
+
+        // Conga Line follower movement
+        if (p.congaLeaderId) {
+          const leader = state.players.find(l => l.id === p.congaLeaderId);
+          if (leader) {
+            const dx = leader.x - p.x;
+            const dy = leader.y - p.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist > 32) {
+              p.x += (dx / dist) * (dist - 32) * 0.4;
+              p.y += (dy / dist) * (dist - 32) * 0.4;
+            }
+          } else {
+            p.congaLeaderId = null;
           }
         }
 
@@ -313,6 +388,55 @@ export class LocalGameEngine {
     this.p2Input.actionThrow = false;
     this.p2Input.actionInteract = false;
     this.p2Input.actionSlap = false;
+
+    // 7. Update Deck Puddles & Screen Shaders
+    for (let i = state.deckPuddles.length - 1; i >= 0; i--) {
+      state.deckPuddles[i].duration -= 1 / 60;
+      if (state.deckPuddles[i].duration <= 0) {
+        state.deckPuddles.splice(i, 1);
+      }
+    }
+
+    state.screenShaders.greenCrtGlow = false;
+    state.screenShaders.solarEclipseDarkness = 0;
+    state.screenShaders.geigerSoundActive = false;
+
+    for (let i = state.screenShaders.inkSplatters.length - 1; i >= 0; i--) {
+      state.screenShaders.inkSplatters[i].fadeTimer -= 1 / 60;
+      if (state.screenShaders.inkSplatters[i].fadeTimer <= 0) {
+        state.screenShaders.inkSplatters.splice(i, 1);
+      }
+    }
+
+    state.items.forEach(item => {
+      if (item.speciesId === 'radioactive_bass') {
+        state.screenShaders.greenCrtGlow = true;
+        state.screenShaders.geigerSoundActive = true;
+      } else if (item.speciesId === 'moonfish') {
+        state.screenShaders.solarEclipseDarkness = Math.max(state.screenShaders.solarEclipseDarkness, 0.60);
+      } else if (item.speciesId === 'tuna' && !item.isHeld) {
+        item.stateTimer = (item.stateTimer || 1.0) - (1 / 60);
+        if (item.stateTimer <= 0) {
+          item.stateTimer = 1.0;
+          if (Math.random() < 0.50 && state.deckPuddles.length < 20) {
+            state.deckPuddles.push({
+              id: 'butter_' + Date.now() + '_' + Math.random(),
+              type: 'butter',
+              x: item.x,
+              y: item.y,
+              radius: 20,
+              duration: 12.0
+            });
+          }
+        }
+      } else if (item.speciesId === 'ray') {
+        item.stateTimer = (item.stateTimer || 3.0) - (1 / 60);
+        if (item.stateTimer <= 0) {
+          item.stateTimer = 3.0;
+          this.triggerElectricShock(item.x, item.y);
+        }
+      }
+    });
 
     // 7. Center of Mass & Boat Tilt Physics
     let portMass = 0;
@@ -666,7 +790,7 @@ export class LocalGameEngine {
       }
     }
 
-    // Drop item on deck
+    // Drop item on deck / Release Conga Line
     if (p.holdingItemId) {
       const held = this.state.items.find(i => i.id === p.holdingItemId);
       if (held) {
@@ -677,6 +801,36 @@ export class LocalGameEngine {
         p.holdingItemId = null;
         this.onEvent?.('sfx', 'drop');
       }
+      return;
+    }
+
+    if (p.congaLeaderId) {
+      // Disconnect from Conga Line
+      const leader = this.state.players.find(l => l.id === p.congaLeaderId);
+      if (leader) {
+        leader.congaFollowerIds = leader.congaFollowerIds.filter(id => id !== p.id);
+      }
+      p.congaLeaderId = null;
+      this.addFeedMessage(`💨 ${p.name} stepped out of the Conga Line.`, 'info');
+      return;
+    }
+
+    // Check for nearby teammate holding a heavy item (>4.0kg) to join Conga Line!
+    const heavyCarrier = this.state.players.find(other => {
+      if (other.id === p.id || !other.holdingItemId) return false;
+      const dist = Math.hypot(other.x - p.x, other.y - p.y);
+      if (dist > 55) return false;
+      const item = this.state.items.find(i => i.id === other.holdingItemId);
+      return item && item.mass > MAX_SOLO_LIFT_WEIGHT;
+    });
+
+    if (heavyCarrier) {
+      p.congaLeaderId = heavyCarrier.id;
+      if (!heavyCarrier.congaFollowerIds.includes(p.id)) {
+        heavyCarrier.congaFollowerIds.push(p.id);
+      }
+      this.onEvent?.('sfx', 'pickup');
+      this.addFeedMessage(`🎉 CONGA HOIST! ${p.name} linked up with ${heavyCarrier.name} to carry the heavy catch! (+Speed Bonus)`, 'score');
       return;
     }
 
@@ -698,6 +852,10 @@ export class LocalGameEngine {
       item.heldByPlayerId = p.id;
       p.holdingItemId = item.id;
       this.onEvent?.('sfx', 'pickup');
+
+      if (item.mass > MAX_SOLO_LIFT_WEIGHT) {
+        this.addFeedMessage(`⚠️ HEAVY CATCH (${item.mass}kg)! Dragging is slow — Form a CONGA LINE to carry!`, 'info');
+      }
       return;
     }
 
@@ -711,6 +869,20 @@ export class LocalGameEngine {
     if (isNearRailing) {
       this.startFishing(p);
     }
+  }
+
+  private triggerElectricShock(x: number, y: number): void {
+    this.onEvent?.('sfx', 'slap');
+    this.addFeedMessage(`⚡ ZAP! Electric Ray emitted a deck shock pulse!`, 'hazard');
+    this.state.players.forEach(p => {
+      const dist = Math.hypot(p.x - x, p.y - y);
+      if (dist < 115) {
+        p.isStunned = true;
+        p.stunTimer = 1.5;
+        p.vx = (Math.random() - 0.5) * 8;
+        p.vy = (Math.random() - 0.5) * 8;
+      }
+    });
   }
 
   private completeStation(station: WorkStation, player: PlayerState): void {
@@ -1315,6 +1487,8 @@ export class LocalGameEngine {
           privateCash: 0,
           activeBounty: generateGatedSecretBounty(2, this.currentLevelIndex + 1, this.unlockedStations, this.activePerks),
           isFishing: false,
+          congaLeaderId: null,
+          congaFollowerIds: [],
           totalFishBanked: 0,
           totalDishesCooked: 0,
           totalLegalQuotaContributed: 0,

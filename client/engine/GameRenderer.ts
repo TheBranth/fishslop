@@ -50,39 +50,48 @@ export class GameRenderer {
     // 6. Draw Boat Hull & Deck Planks
     this.drawBoatHull(state);
 
-    // 7. Draw Railing Cast Hotspot Prompts
+    // 7. Draw Deck Puddles (Butter, Slime, Grease)
+    this.drawDeckPuddles(state);
+
+    // 8. Draw Railing Cast Hotspot Prompts
     this.drawRailingPrompts(state);
 
-    // 8. Draw Work Stations & Kitchen Minigames
+    // 9. Draw Work Stations & Kitchen Minigames
     state.stations.forEach(station => {
       this.drawStation(station);
     });
 
-    // 9. Draw Loose Items on Deck
+    // 10. Draw Loose Items on Deck
     state.items.forEach(item => {
       if (!item.isHeld) {
         this.drawItem(item);
       }
     });
 
-    // 10. Draw Players (with Fishing Rods & Reel Minigames)
+    // 11. Draw Conga Line Connection Chains
+    this.drawCongaConnections(state);
+
+    // 12. Draw Players (with Fishing Rods & Reel Minigames)
     state.players.forEach(player => {
       this.drawPlayer(player, state);
     });
 
-    // 11. Level 5 Kraken Grappling Tentacles (on top of gunwales)
+    // 13. Level 5 Kraken Grappling Tentacles (on top of gunwales)
     if (state.level.isBossLevel && state.krakenBoss) {
       this.drawKrakenGrapplingTentacles(state);
     }
 
-    // 12. Mass Balance Debug Overlays
+    // 14. Mass Balance Debug Overlays
     if (this.showDebugMass) {
       this.drawMassBalanceOverlay(state);
     }
 
     ctx.restore();
 
-    // 13. Top HUD Boss Bar for Level 5 Kraken
+    // 15. Dynamic Screen Shaders (Green CRT, Solar Eclipse, Ink Splatters)
+    this.drawScreenShaders(state);
+
+    // 16. Top HUD Boss Bar for Level 5 Kraken
     if (state.level.isBossLevel && state.krakenBoss) {
       this.drawKrakenBossHUD(state);
     }
@@ -653,6 +662,121 @@ export class GameRenderer {
       ctx.beginPath();
       ctx.arc(0, gaugeY - 14, 10, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * prog);
       ctx.stroke();
+    }
+  }
+
+  private drawDeckPuddles(state: GameRoomState): void {
+    const { ctx } = this;
+    state.deckPuddles.forEach(p => {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+
+      if (p.type === 'butter') {
+        ctx.fillStyle = 'rgba(250, 204, 21, 0.45)';
+        ctx.strokeStyle = 'rgba(254, 240, 138, 0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.radius, p.radius * 0.65, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '10px Arial';
+        ctx.fillText('🧈', -5, 3);
+      } else if (p.type === 'slime') {
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.45)';
+        ctx.strokeStyle = 'rgba(110, 231, 183, 0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.radius, p.radius * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    });
+  }
+
+  private drawCongaConnections(state: GameRoomState): void {
+    const { ctx } = this;
+    state.players.forEach(p => {
+      if (p.congaLeaderId) {
+        const leader = state.players.find(l => l.id === p.congaLeaderId);
+        if (leader) {
+          ctx.strokeStyle = '#facc15';
+          ctx.lineWidth = 3;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(leader.x, leader.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.fillStyle = '#facc15';
+          ctx.font = 'bold 9px Plus Jakarta Sans';
+          ctx.textAlign = 'center';
+          ctx.fillText('🤝 CONGA', (p.x + leader.x) / 2, (p.y + leader.y) / 2 - 8);
+        }
+      }
+    });
+  }
+
+  private drawScreenShaders(state: GameRoomState): void {
+    const { ctx } = this;
+    const shaders = state.screenShaders;
+    if (!shaders) return;
+
+    // 1. Solar Eclipse (Moonfish Darkness 60%)
+    if (shaders.solarEclipseDarkness > 0) {
+      ctx.fillStyle = `rgba(2, 6, 23, ${shaders.solarEclipseDarkness})`;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      // Lantern glow around players
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      state.players.forEach(p => {
+        const grad = ctx.createRadialGradient(p.x, p.y, 10, p.x, p.y, 90);
+        grad.addColorStop(0, 'rgba(0,0,0,1)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 90, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+    }
+
+    // 2. Radioactive Bass Neon Green CRT Glow
+    if (shaders.greenCrtGlow) {
+      ctx.fillStyle = 'rgba(34, 197, 94, 0.12)';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      // Scanline effect
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+      for (let y = 0; y < CANVAS_HEIGHT; y += 4) {
+        ctx.fillRect(0, y, CANVAS_WIDTH, 2);
+      }
+
+      ctx.fillStyle = '#4ade80';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText('☢️ GEIGER: 140 mR/h (RADIOACTIVE BASS ON DECK)', 20, CANVAS_HEIGHT - 20);
+    }
+
+    // 3. Ink Squid Camera Splatters
+    if (shaders.inkSplatters && shaders.inkSplatters.length > 0) {
+      shaders.inkSplatters.forEach(sp => {
+        const alpha = Math.min(1, sp.fadeTimer / 1.5);
+        ctx.fillStyle = `rgba(15, 23, 42, ${0.95 * alpha})`;
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, sp.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Ink tendrils
+        ctx.beginPath();
+        ctx.arc(sp.x - sp.radius * 0.4, sp.y + sp.radius * 0.5, sp.radius * 0.4, 0, Math.PI * 2);
+        ctx.arc(sp.x + sp.radius * 0.4, sp.y + sp.radius * 0.6, sp.radius * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+      });
     }
   }
 

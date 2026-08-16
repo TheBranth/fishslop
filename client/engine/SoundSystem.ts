@@ -64,6 +64,9 @@ export class SoundSystem {
         case 'bounty_ring':
           this.playNokiaBountyChime();
           break;
+        case 'geiger':
+          this.playGeigerClick();
+          break;
         case 'bounty_complete':
           this.playVictoryJingle();
           break;
@@ -401,5 +404,30 @@ export class SoundSystem {
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
       navigator.vibrate([40, 60, 40]);
     }
+  }
+
+  public playGeigerClick(): void {
+    const ctx = this.ctx!;
+    const bufferSize = ctx.sampleRate * 0.005;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.001));
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(2200, ctx.currentTime);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    noise.start();
   }
 }

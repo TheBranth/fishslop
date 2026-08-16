@@ -45,6 +45,9 @@ export interface PlayerState {
   fishingTargetSpecies?: FishSpeciesId;
   castTargetX?: number;
   castTargetY?: number;
+  // Conga Line Co-op Lifting (Individual Strength & Conga Chains)
+  congaLeaderId: string | null;
+  congaFollowerIds: string[];
   // Contribution stats for Endgame Audit
   totalFishBanked: number;
   totalDishesCooked: number;
@@ -64,13 +67,42 @@ export interface OceanFishShadow {
 
 export type FishSpeciesId = 
   | 'guppy'
+  | 'cod'
+  | 'sunfish'
+  | 'salmon'
   | 'boot'
   | 'turtle'
   | 'tuna'
   | 'eel'
+  | 'squid'
   | 'ray'
+  | 'radioactive_bass'
+  | 'moonfish'
   | 'bombfish'
   | 'kraken';
+
+export interface DeckPuddle {
+  id: string;
+  type: 'butter' | 'slime' | 'grease' | 'water';
+  x: number;
+  y: number;
+  radius: number;
+  duration: number; // in seconds
+}
+
+export interface InkSplatter {
+  x: number;
+  y: number;
+  radius: number;
+  fadeTimer: number;
+}
+
+export interface DeckScreenShaderState {
+  greenCrtGlow: boolean;
+  solarEclipseDarkness: number; // 0.0 to 0.60
+  geigerSoundActive: boolean;
+  inkSplatters: InkSplatter[];
+}
 
 export type ItemType = 
   | 'fish' 
@@ -221,6 +253,8 @@ export interface GameRoomState {
   krakenBoss: KrakenBossState | null;
   activePerks: Set<string>;
   capsizingTimer: number; // triggers game over if > 2.5s past 32 deg
+  deckPuddles: DeckPuddle[];
+  screenShaders: DeckScreenShaderState;
   endgameAudit: EndgameAuditRecord[] | null;
   activeContract?: any; // ActiveContractState
 }

@@ -56,25 +56,33 @@ export const PLAYER_PROFILES = [
   { color: 'green', colorHex: '#4ade80', name: 'Captain Emerald', borderHex: '#16a34a' }
 ] as const;
 
-// The 5-Level Escalation Curve
+export const MAX_SOLO_LIFT_WEIGHT = 4.0; // Items > 4.0kg require Conga Line co-op lift
+
+// The 5-Level Escalation Curve (Exact Spawn Gatekeeping Matrix)
 export const ROGUELITE_LEVELS: RogueliteLevel[] = [
   {
     levelNumber: 1,
     id: 'lvl_1_sweetwater',
     name: 'Sweetwater Shallows',
-    subtitle: 'Wooden Rowboat — Introductory Fishing & Cooler Sorting',
+    subtitle: 'Wooden Rowboat — Guppy & Cod Commercial Fishing & Cooler Sorting',
     targetQuota: 250,
     timeLimitSeconds: 90,
     environmentalHazard: 'calm',
     spawnRates: {
-      guppy: 0.50,
-      boot: 0.25,
-      turtle: 0.25,
-      tuna: 0.0,
-      eel: 0.0,
-      ray: 0.0,
-      bombfish: 0.0,
-      kraken: 0.0
+      guppy: 0.45,
+      cod: 0.15,
+      sunfish: 0.05,
+      salmon: 0.00,
+      boot: 0.20,
+      turtle: 0.15,
+      tuna: 0.00,
+      eel: 0.00,
+      squid: 0.00,
+      ray: 0.00,
+      radioactive_bass: 0.00,
+      moonfish: 0.00,
+      bombfish: 0.00,
+      kraken: 0.00
     },
     unlockedStations: ['cooler']
   },
@@ -82,19 +90,25 @@ export const ROGUELITE_LEVELS: RogueliteLevel[] = [
     levelNumber: 2,
     id: 'lvl_2_industrial',
     name: 'Industrial Smog Coast',
-    subtitle: 'Diesel Trawler — Greasy Decks, Smog Waves & Deep Fryers',
+    subtitle: 'Diesel Trawler — Butter Tuna Grease, Slime Eels & Deep Fryers',
     targetQuota: 550,
     timeLimitSeconds: 90,
     environmentalHazard: 'smog_waves',
     spawnRates: {
-      guppy: 0.25,
+      guppy: 0.15,
+      cod: 0.20,
+      sunfish: 0.10,
+      salmon: 0.05,
       boot: 0.15,
-      turtle: 0.15,
-      tuna: 0.25,
-      eel: 0.20,
-      ray: 0.0,
-      bombfish: 0.0,
-      kraken: 0.0
+      turtle: 0.10,
+      tuna: 0.15,
+      eel: 0.10,
+      squid: 0.00,
+      ray: 0.00,
+      radioactive_bass: 0.00,
+      moonfish: 0.00,
+      bombfish: 0.00,
+      kraken: 0.00
     },
     unlockedStations: ['cooler']
   },
@@ -102,19 +116,25 @@ export const ROGUELITE_LEVELS: RogueliteLevel[] = [
     levelNumber: 3,
     id: 'lvl_3_abyss',
     name: 'Abyssal Trench',
-    subtitle: 'Deep Sea Hull — Pitch Darkness, Lightning & Electric Rays',
+    subtitle: 'Deep Sea Hull — Ink Squids, Electric Rays, Radioactive Bass & Moonfish Shaders',
     targetQuota: 900,
     timeLimitSeconds: 90,
     environmentalHazard: 'abyss_storm',
     spawnRates: {
-      guppy: 0.15,
+      guppy: 0.00,
+      cod: 0.10,
+      sunfish: 0.10,
+      salmon: 0.10,
       boot: 0.10,
-      turtle: 0.15,
-      tuna: 0.20,
-      eel: 0.15,
-      ray: 0.25,
-      bombfish: 0.0,
-      kraken: 0.0
+      turtle: 0.05,
+      tuna: 0.10,
+      eel: 0.10,
+      squid: 0.15,
+      ray: 0.10,
+      radioactive_bass: 0.05,
+      moonfish: 0.05,
+      bombfish: 0.00,
+      kraken: 0.00
     },
     unlockedStations: ['cooler']
   },
@@ -122,19 +142,25 @@ export const ROGUELITE_LEVELS: RogueliteLevel[] = [
     levelNumber: 4,
     id: 'lvl_4_maelstrom',
     name: 'The Maelstrom',
-    subtitle: 'Centrifugal Whirlpool — 360° Tilt Vortex & Volcanic Bombfish',
+    subtitle: 'Centrifugal Whirlpool — Volcanic Bombfish, Multi-Hazard Minefield & 360° Tilt',
     targetQuota: 1350,
     timeLimitSeconds: 90,
     environmentalHazard: 'whirlpool',
     spawnRates: {
-      guppy: 0.10,
-      boot: 0.10,
-      turtle: 0.10,
-      tuna: 0.15,
-      eel: 0.15,
-      ray: 0.15,
-      bombfish: 0.25,
-      kraken: 0.0
+      guppy: 0.00,
+      cod: 0.05,
+      sunfish: 0.05,
+      salmon: 0.05,
+      boot: 0.05,
+      turtle: 0.00,
+      tuna: 0.10,
+      eel: 0.10,
+      squid: 0.15,
+      ray: 0.10,
+      radioactive_bass: 0.10,
+      moonfish: 0.10,
+      bombfish: 0.15,
+      kraken: 0.00
     },
     unlockedStations: ['cooler']
   },
@@ -142,21 +168,27 @@ export const ROGUELITE_LEVELS: RogueliteLevel[] = [
     levelNumber: 5,
     id: 'lvl_5_kraken',
     name: 'The Eldritch Kraken',
-    subtitle: 'Thunderstorm Abyss — Tentacle Gunwale Grappling Boss Battle',
+    subtitle: 'Thunderstorm Abyss — Tentacle Gunwale Grappling Boss Battle (1200 HP)',
     targetQuota: 0, // Direct Boss HP Battle!
     timeLimitSeconds: 100,
     environmentalHazard: 'kraken_boss',
     isBossLevel: true,
     bossMaxHP: 1200,
     spawnRates: {
-      guppy: 0.05,
-      boot: 0.10,
-      turtle: 0.10,
-      tuna: 0.10,
-      eel: 0.15,
-      ray: 0.10,
-      bombfish: 0.25,
-      kraken: 0.15
+      guppy: 0.00,
+      cod: 0.00,
+      sunfish: 0.00,
+      salmon: 0.05,
+      boot: 0.05,
+      turtle: 0.00,
+      tuna: 0.05,
+      eel: 0.05,
+      squid: 0.10,
+      ray: 0.05,
+      radioactive_bass: 0.05,
+      moonfish: 0.05,
+      bombfish: 0.10,
+      kraken: 0.35
     },
     unlockedStations: ['cooler']
   }
