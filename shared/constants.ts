@@ -1,6 +1,6 @@
 // Constants & 5-Level Roguelite Escalation Curve for Friendslop Fishing Co.
 
-import { RogueliteLevel } from './types';
+import { RogueliteLevel, StationType } from './types';
 
 export const TICK_RATE = 60;
 export const TICK_INTERVAL = 1000 / TICK_RATE;
@@ -193,3 +193,19 @@ export const ROGUELITE_LEVELS: RogueliteLevel[] = [
     unlockedStations: ['cooler']
   }
 ];
+
+// Fixed Starter Stations (Level 1 Foundation)
+export const FIXED_STARTER_STATIONS = [
+  { type: 'rod_rack' as StationType, name: 'Rod Storage Rack', x: 235, y: 260, w: 40, h: 65 },
+  { type: 'cooler' as StationType, name: 'Delivery Cooler', x: 725, y: 260, w: 44, h: 70 },
+  { type: 'trash_chute' as StationType, name: 'Trash Chute', x: 460, y: 395, w: 80, h: 40 }
+];
+
+// 4 Modular Border Sockets (Auto-Balanced Gunwale Worktops)
+export const MODULAR_SOCKET_LAYOUTS = [
+  { socketIndex: 0, name: 'Socket #1 (Port Bow)', x: 240, y: 140, w: 65, h: 50 },
+  { socketIndex: 1, name: 'Socket #2 (Starboard Bow)', x: 695, y: 140, w: 65, h: 50 },
+  { socketIndex: 2, name: 'Socket #3 (Port Stern)', x: 240, y: 340, w: 65, h: 50 },
+  { socketIndex: 3, name: 'Socket #4 (Starboard Stern)', x: 695, y: 340, w: 65, h: 50 }
+];
+

@@ -22,7 +22,9 @@ import {
   PHYSICS, 
   PLAYER_PROFILES, 
   ROGUELITE_LEVELS,
-  MAX_SOLO_LIFT_WEIGHT
+  MAX_SOLO_LIFT_WEIGHT,
+  FIXED_STARTER_STATIONS,
+  MODULAR_SOCKET_LAYOUTS
 } from '../../shared/constants';
 import { FISH_REGISTRY } from '../../shared/fishDatabase';
 import { validateStationInteraction } from '../../shared/recipes';
@@ -100,6 +102,7 @@ export class LocalGameEngine {
           privateCash: 0,
           activeBounty: null,
           contextualAction: null,
+          hasRodEquipped: false,
           isFishing: false,
           congaLeaderId: null,
           congaFollowerIds: [],
@@ -128,6 +131,7 @@ export class LocalGameEngine {
           privateCash: 0,
           activeBounty: null,
           contextualAction: null,
+          hasRodEquipped: false,
           isFishing: false,
           congaLeaderId: null,
           congaFollowerIds: [],
@@ -280,6 +284,32 @@ export class LocalGameEngine {
     if (state.level.isBossLevel && state.krakenBoss) {
       this.updateKrakenBoss();
     }
+
+    // Update Station Penalty Timers (Broken Knife, Electrified Basin, Wobbly Cleaver)
+    state.stations.forEach(s => {
+      if (s.isBroken && s.brokenTimer !== undefined) {
+        s.brokenTimer -= 1 / 60;
+        if (s.brokenTimer <= 0) {
+          s.isBroken = false;
+          s.brokenTimer = 0;
+          s.brokenReason = undefined;
+        }
+      }
+      if (s.isElectrified && s.electrifiedTimer !== undefined) {
+        s.electrifiedTimer -= 1 / 60;
+        if (s.electrifiedTimer <= 0) {
+          s.isElectrified = false;
+          s.electrifiedTimer = 0;
+        }
+      }
+      if (s.isWobbly && s.wobblyTimer !== undefined) {
+        s.wobblyTimer -= 1 / 60;
+        if (s.wobblyTimer <= 0) {
+          s.isWobbly = false;
+          s.wobblyTimer = 0;
+        }
+      }
+    });
 
     // 6. Process Players (Movement, Fishing, Kitchen Interactions)
     state.players.forEach(p => {
@@ -721,7 +751,18 @@ export class LocalGameEngine {
 
     // 3. Hands Empty: Proximity Affordances
     if (!p.holdingItemId) {
-      // Priority A: Floor item in range
+      // Priority A: Rod Storage Rack (Equip / Return Rod)
+      const rodRack = this.state.stations.find(s => s.type === 'rod_rack');
+      if (rodRack) {
+        const dist = Math.hypot(rodRack.x + rodRack.w / 2 - p.x, rodRack.y + rodRack.h / 2 - p.y);
+        if (dist < 42) {
+          return p.hasRodEquipped 
+            ? { label: 'RETURN', colorHex: '#94a3b8' }
+            : { label: 'ROD', colorHex: '#38bdf8' };
+        }
+      }
+
+      // Priority B: Floor item in range
       let nearestItem: EntityItem | null = null;
       let minItemDist = 50;
       this.state.items.forEach(item => {
@@ -736,9 +777,9 @@ export class LocalGameEngine {
         return { label: 'GRAB', colorHex: '#f59e0b' };
       }
 
-      // Priority B: Kitchen Station with completed cooked food
+      // Priority C: Kitchen Station with completed cooked food
       const finishedStation = this.state.stations.find(s => {
-        if (!s.heldItem || s.isProcessing || s.type === 'cooler') return false;
+        if (!s.heldItem || s.isProcessing || s.type === 'cooler' || s.type === 'rod_rack') return false;
         const dist = Math.hypot(s.x + s.w / 2 - p.x, s.y + s.h / 2 - p.y);
         return dist < 65;
       });
@@ -746,17 +787,19 @@ export class LocalGameEngine {
         return { label: 'TAKE', colorHex: '#2dd4bf' };
       }
 
-      // Priority C: Railing Hotspot for Casting
+      // Priority D: Railing Hotspot for Casting
       const isNearRailing =
         p.x < DECK_BOUNDS.minX + 35 ||
         p.x > DECK_BOUNDS.maxX - 35 ||
         p.y < DECK_BOUNDS.minY + 35 ||
         p.y > DECK_BOUNDS.maxY - 35;
       if (isNearRailing) {
-        return { label: 'CAST', colorHex: '#38bdf8' };
+        return p.hasRodEquipped 
+          ? { label: 'CAST', colorHex: '#38bdf8' }
+          : { label: 'NO ROD', colorHex: '#ef4444' };
       }
 
-      // Priority D: Heavy Teammate for Conga Line
+      // Priority E: Heavy Teammate for Conga Line
       const heavyCarrier = this.state.players.find(other => {
         if (other.id === p.id || !other.holdingItemId) return false;
         const dist = Math.hypot(other.x - p.x, other.y - p.y);
@@ -792,6 +835,12 @@ export class LocalGameEngine {
       if (nearStation.type === 'soup_pot') {
         return { label: 'SOUP', colorHex: '#34d399' };
       }
+      if (nearStation.type === 'sushi_station') {
+        return { label: 'ROLL', colorHex: '#a855f7' };
+      }
+      if (nearStation.type === 'rinse_station') {
+        return { label: 'RINSE', colorHex: '#38bdf8' };
+      }
     }
 
     // Open deck space -> Gentle Drop
@@ -822,12 +871,36 @@ export class LocalGameEngine {
       return;
     }
 
-    // 2. Active Minigame Progression on Stations
+    // 2. Rod Storage Rack Interaction (Grab / Return Fishing Rod)
+    const rodRack = this.state.stations.find(s => s.type === 'rod_rack');
+    if (rodRack && !p.holdingItemId) {
+      const dist = Math.hypot(rodRack.x + rodRack.w / 2 - p.x, rodRack.y + rodRack.h / 2 - p.y);
+      if (dist < 42) {
+        p.hasRodEquipped = !p.hasRodEquipped;
+        this.onEvent?.('sfx', 'pickup');
+        if (p.hasRodEquipped) {
+          this.onEvent?.('popup', '', { text: '🎣 ROD EQUIPPED!', color: '#38bdf8', x: p.x, y: p.y - 25 });
+          this.addFeedMessage(`🎣 ${p.name} equipped a fishing rod! Walk to the railing to cast.`, 'info');
+        } else {
+          this.onEvent?.('popup', '', { text: '🎣 ROD RETURNED', color: '#94a3b8', x: p.x, y: p.y - 25 });
+          this.addFeedMessage(`🎣 ${p.name} returned the fishing rod to the rack.`, 'info');
+        }
+        return;
+      }
+    }
+
+    // 3. Active Minigame Progression on Stations
     const nearStation = this.state.stations.find(s => 
       Math.hypot(s.x + s.w/2 - p.x, s.y + s.h/2 - p.y) < 65
     );
 
     if (nearStation) {
+      // Check Electrified Station Penalty
+      if (nearStation.isElectrified) {
+        this.triggerElectricShock(nearStation.x, nearStation.y);
+        return;
+      }
+
       if (nearStation.isBroken) {
         this.onEvent?.('sfx', 'slap');
         this.addFeedMessage(`⚠️ ${nearStation.name} is broken! ${nearStation.brokenReason}`, 'hazard');
@@ -892,8 +965,14 @@ export class LocalGameEngine {
         return;
       }
 
+      // Sushi Rolling Mat
+      if (nearStation.type === 'sushi_station' && nearStation.heldItem && nearStation.minigameState === 'chopping') {
+        this.completeStation(nearStation, p);
+        return;
+      }
+
       // Load fish into station (Validates against Mismatch Rules!)
-      if (p.holdingItemId && !nearStation.heldItem && nearStation.type !== 'cooler') {
+      if (p.holdingItemId && !nearStation.heldItem && nearStation.type !== 'cooler' && nearStation.type !== 'rod_rack') {
         const held = this.state.items.find(i => i.id === p.holdingItemId);
         if (held) {
           const validation = validateStationInteraction(nearStation.type, held);
@@ -903,21 +982,37 @@ export class LocalGameEngine {
             this.onEvent?.('sfx', 'slap');
             this.addFeedMessage(validation.reason || '⚠️ Cooking Mismatch Penalty!', 'hazard');
 
-            if (validation.penaltyType === 'broken_tool') {
+            if (validation.penaltyType === 'broken_knife') {
               nearStation.isBroken = true;
               nearStation.brokenTimer = validation.penaltyDurationSeconds || 5.0;
               nearStation.brokenReason = validation.reason;
               this.checkBounties('break_knife', { player: p });
+            } else if (validation.penaltyType === 'oil_shockwave') {
+              this.triggerElectricShock(nearStation.x, nearStation.y);
+            } else if (validation.penaltyType === 'electrified_basin') {
+              nearStation.isElectrified = true;
+              nearStation.electrifiedTimer = validation.penaltyDurationSeconds || 5.0;
+              this.triggerElectricShock(nearStation.x, nearStation.y);
             } else if (validation.penaltyType === 'flash_explosion') {
               this.triggerExplosion(nearStation.x, nearStation.y);
               this.state.items = this.state.items.filter(i => i.id !== held.id);
               p.holdingItemId = null;
+            } else if (validation.penaltyType === 'slime_boilover') {
+              this.state.deckPuddles.push({
+                id: `puddle_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+                x: nearStation.x + 20,
+                y: nearStation.y + 40,
+                radius: 38,
+                duration: 15.0,
+                type: 'slime'
+              });
+              this.onEvent?.('popup', '', { text: '🧪 SLIME OVERFLOW!', color: '#4ade80', x: nearStation.x, y: nearStation.y - 20 });
             }
             return;
           }
 
           // Valid station loading
-          if (validation.recipe) {
+          if (validation.outcome) {
             nearStation.heldItem = held;
             nearStation.isProcessing = true;
             held.isHeld = false;
@@ -939,6 +1034,10 @@ export class LocalGameEngine {
               nearStation.stirSwirls = 0;
               this.onEvent?.('sfx', 'bubble');
               this.addFeedMessage(`🍲 Press ACTION 3 times to swirl the broth!`, 'info');
+            } else if (nearStation.type === 'sushi_station') {
+              nearStation.minigameState = 'chopping';
+              this.onEvent?.('sfx', 'pickup');
+              this.addFeedMessage(`🍣 Press ACTION to roll ${held.name} into Nori!`, 'info');
             }
             return;
           }
@@ -946,7 +1045,7 @@ export class LocalGameEngine {
       }
     }
 
-    // 3. If Holding an Item in Open Space -> Gentle Drop!
+    // 4. If Holding an Item in Open Space -> Gentle Drop!
     if (p.holdingItemId) {
       const held = this.state.items.find(i => i.id === p.holdingItemId);
       if (held) {
@@ -961,7 +1060,7 @@ export class LocalGameEngine {
       return;
     }
 
-    // 4. If Hands Empty: Grab Floor Item Priority
+    // 5. If Hands Empty: Grab Floor Item Priority
     let nearest: EntityItem | null = null;
     let minDist = 50;
     this.state.items.forEach(item => {
@@ -986,7 +1085,7 @@ export class LocalGameEngine {
       return;
     }
 
-    // 5. If near Railing -> Cast Fishing Rod
+    // 6. If near Railing -> Cast Fishing Rod (Gated by hasRodEquipped)
     const isNearRailing = 
       p.x < DECK_BOUNDS.minX + 35 ||
       p.x > DECK_BOUNDS.maxX - 35 ||
@@ -994,11 +1093,16 @@ export class LocalGameEngine {
       p.y > DECK_BOUNDS.maxY - 35;
 
     if (isNearRailing && !p.isFishing) {
+      if (!p.hasRodEquipped) {
+        this.onEvent?.('popup', '', { text: '⚠️ GRAB ROD FROM RACK!', color: '#ef4444', x: p.x, y: p.y - 25 });
+        this.addFeedMessage(`⚠️ ${p.name} needs a fishing rod! Walk to the Rod Storage Rack on the left.`, 'hazard');
+        return;
+      }
       this.startFishing(p);
       return;
     }
 
-    // 6. Join Conga Line if near Heavy Carrier
+    // 7. Join Conga Line if near Heavy Carrier
     const heavyCarrier = this.state.players.find(other => {
       if (other.id === p.id || !other.holdingItemId) return false;
       const dist = Math.hypot(other.x - p.x, other.y - p.y);
@@ -1018,7 +1122,7 @@ export class LocalGameEngine {
       return;
     }
 
-    // 7. Disconnect from Conga if already in one
+    // 8. Disconnect from Conga if already in one
     if (p.congaLeaderId) {
       const leader = this.state.players.find(l => l.id === p.congaLeaderId);
       if (leader) {
@@ -1055,12 +1159,12 @@ export class LocalGameEngine {
   private triggerElectricShock(x: number, y: number): void {
     this.onEvent?.('sfx', 'slap');
     this.onEvent?.('popup', '', { text: `⚡ ZAP!`, color: '#fde047', x, y: y - 20 });
-    this.addFeedMessage(`⚡ ZAP! Electric Ray emitted a deck shock pulse!`, 'hazard');
+    this.addFeedMessage(`⚡ ZAP! Electric shockwave blasted the deck!`, 'hazard');
     this.state.players.forEach(p => {
       const dist = Math.hypot(p.x - x, p.y - y);
-      if (dist < 115) {
+      if (dist < 130) {
         p.isStunned = true;
-        p.stunTimer = 1.5;
+        p.stunTimer = 2.0;
         p.vx = (Math.random() - 0.5) * 8;
         p.vy = (Math.random() - 0.5) * 8;
         this.onEvent?.('popup', '', { text: `💥 STUNNED!`, color: '#ef4444', x: p.x, y: p.y - 25 });
@@ -1072,13 +1176,14 @@ export class LocalGameEngine {
     if (!station.heldItem) return;
     const item = station.heldItem;
     const validation = validateStationInteraction(station.type, item);
-    const recipe = validation.recipe;
+    const outcome = validation.outcome;
 
-    if (recipe) {
-      item.name = recipe.outputName;
-      item.emoji = recipe.outputEmoji;
-      item.type = recipe.outputItemType;
-      item.value = Math.round(item.value * recipe.valueMultiplier);
+    if (outcome) {
+      item.name = outcome.name;
+      item.emoji = outcome.emoji;
+      item.type = outcome.itemType;
+      item.value = outcome.value;
+      item.modifiers = outcome.modifiers;
       item.isCooked = true;
       station.isProcessing = false;
       station.progress = 1.0;
@@ -1197,6 +1302,7 @@ export class LocalGameEngine {
       id: `item_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       type: 'fish',
       speciesId,
+      baseSpeciesId: speciesId,
       name: def.name,
       emoji: def.emoji,
       x: safeLandX,
@@ -1206,7 +1312,9 @@ export class LocalGameEngine {
       mass: def.mass,
       isHeld: false,
       heldByPlayerId: null,
-      value: def.basePrice
+      value: def.basePrice,
+      basePrice: def.basePrice,
+      modifiers: ['raw']
     };
 
     this.state.items.push(item);
@@ -1583,20 +1691,45 @@ export class LocalGameEngine {
   }
 
   private buildCurrentStations(): WorkStation[] {
-    const list: WorkStation[] = [
-      { id: 'st_cooler', type: 'cooler', name: 'Cooler Box', x: 420, y: 130, w: 120, h: 70, progress: 0, isProcessing: false, heldItem: null, minigameState: 'idle' },
-      { id: 'st_trash', type: 'trash_chute', name: 'Trash Chute', x: 660, y: 350, w: 90, h: 60, progress: 0, isProcessing: false, heldItem: null, minigameState: 'idle' }
-    ];
+    const list: WorkStation[] = FIXED_STARTER_STATIONS.map(fs => ({
+      id: `st_fixed_${fs.type}`,
+      type: fs.type,
+      name: fs.name,
+      x: fs.x,
+      y: fs.y,
+      w: fs.w,
+      h: fs.h,
+      progress: 0,
+      isProcessing: false,
+      heldItem: null,
+      minigameState: 'idle'
+    }));
 
-    if (this.unlockedStations.has('cutting_board')) {
-      list.push({ id: 'st_cutting', type: 'cutting_board', name: 'Fillet Board', x: 210, y: 130, w: 90, h: 60, progress: 0, isProcessing: false, heldItem: null, minigameState: 'idle' });
-    }
-    if (this.unlockedStations.has('deep_fryer')) {
-      list.push({ id: 'st_fryer', type: 'deep_fryer', name: 'Deep Fryer', x: 660, y: 130, w: 90, h: 60, progress: 0, isProcessing: false, heldItem: null, minigameState: 'idle' });
-    }
-    if (this.unlockedStations.has('soup_pot')) {
-      list.push({ id: 'st_soup', type: 'soup_pot', name: 'Soup Kettle', x: 210, y: 350, w: 90, h: 60, progress: 0, isProcessing: false, heldItem: null, minigameState: 'idle' });
-    }
+    // Auto-balance unlocked modular stations into the 4 border sockets
+    const modularTypes: { type: StationType; name: string }[] = [];
+    if (this.unlockedStations.has('cutting_board')) modularTypes.push({ type: 'cutting_board', name: 'Fillet Board' });
+    if (this.unlockedStations.has('deep_fryer')) modularTypes.push({ type: 'deep_fryer', name: 'Deep Fryer' });
+    if (this.unlockedStations.has('soup_pot')) modularTypes.push({ type: 'soup_pot', name: 'Soup Kettle' });
+    if (this.unlockedStations.has('sushi_station')) modularTypes.push({ type: 'sushi_station', name: 'Sushi Rolling Mat' });
+    if (this.unlockedStations.has('rinse_station')) modularTypes.push({ type: 'rinse_station', name: 'Rinse Basin' });
+
+    modularTypes.forEach((mod, idx) => {
+      const socket = MODULAR_SOCKET_LAYOUTS[idx % MODULAR_SOCKET_LAYOUTS.length];
+      list.push({
+        id: `st_socket_${mod.type}_${idx}`,
+        type: mod.type,
+        name: mod.name,
+        socketIndex: idx,
+        x: socket.x,
+        y: socket.y,
+        w: socket.w,
+        h: socket.h,
+        progress: 0,
+        isProcessing: false,
+        heldItem: null,
+        minigameState: 'idle'
+      });
+    });
 
     return list;
   }
@@ -1671,6 +1804,7 @@ export class LocalGameEngine {
           privateCash: 0,
           activeBounty: generateGatedSecretBounty(2, this.currentLevelIndex + 1, this.unlockedStations, this.activePerks),
           contextualAction: null,
+          hasRodEquipped: false,
           isFishing: false,
           congaLeaderId: null,
           congaFollowerIds: [],
@@ -1702,6 +1836,7 @@ export class LocalGameEngine {
       id: `item_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       type: 'fish',
       speciesId,
+      baseSpeciesId: speciesId,
       name: def.name,
       emoji: def.emoji,
       x: x ?? (360 + (Math.random() * 240 - 120)),
@@ -1711,7 +1846,9 @@ export class LocalGameEngine {
       mass: def.mass,
       isHeld: false,
       heldByPlayerId: null,
-      value: def.basePrice
+      value: def.basePrice,
+      basePrice: def.basePrice,
+      modifiers: ['raw']
     };
 
     this.state.items.push(item);
@@ -1751,6 +1888,7 @@ export class LocalGameEngine {
       p.x = i === 0 ? 320 : 640;
       p.y = 270;
       p.isFishing = false;
+      p.hasRodEquipped = false;
       p.holdingItemId = null;
       p.totalFishBanked = 0;
       p.totalDishesCooked = 0;

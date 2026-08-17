@@ -541,6 +541,45 @@ export class GameRenderer {
         }
       }
 
+    } else if (station.type === 'rod_rack') {
+      // 🎣 Rod Storage Rack
+      ctx.fillStyle = '#78350f';
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(station.x, station.y, station.w, station.h, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      // Fishing rods resting on rack
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(station.x + 12, station.y + station.h - 8);
+      ctx.lineTo(station.x + 12, station.y + 8);
+      ctx.moveTo(station.x + 28, station.y + station.h - 8);
+      ctx.lineTo(station.x + 28, station.y + 8);
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px Plus Jakarta Sans';
+      ctx.textAlign = 'center';
+      ctx.fillText('RODS 🎣', station.x + station.w / 2, station.y + station.h / 2 - 2);
+
+    } else if (station.type === 'sushi_station') {
+      ctx.fillStyle = '#581c87';
+      ctx.strokeStyle = '#c084fc';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(station.x, station.y, station.w, station.h, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px Plus Jakarta Sans';
+      ctx.textAlign = 'center';
+      ctx.fillText('SUSHI 🍣', station.x + station.w / 2, station.y + station.h / 2 - 2);
+
     } else if (station.type === 'trash_chute') {
       ctx.fillStyle = '#334155';
       ctx.strokeStyle = '#64748b';
@@ -557,6 +596,24 @@ export class GameRenderer {
       ctx.font = '9px Plus Jakarta Sans';
       ctx.fillStyle = '#94a3b8';
       ctx.fillText('Discard Boots', station.x + station.w / 2, station.y + station.h / 2 + 12);
+    }
+
+    // Slapstick Penalty Overlays (Broken Knife & Electrified Basin)
+    if (station.isBroken) {
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+      ctx.fillRect(station.x, station.y, station.w, station.h);
+      ctx.font = '20px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('🔪⚠️', station.x + station.w / 2, station.y + station.h / 2 + 6);
+    }
+
+    if (station.isElectrified) {
+      ctx.strokeStyle = '#fde047';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(station.x - 2, station.y - 2, station.w + 4, station.h + 4);
+      ctx.font = '18px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('⚡', station.x + station.w / 2, station.y - 8);
     }
   }
 
@@ -689,6 +746,24 @@ export class GameRenderer {
         ctx.font = '20px Arial';
         ctx.fillText(held.emoji, 0, -36 - bobY);
       }
+    }
+
+    // 8.5 Slung Fishing Rod on Back (when hasRodEquipped)
+    if (player.hasRodEquipped && !player.isFishing) {
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-10, 8 - bobY);
+      ctx.lineTo(14, -28 - bobY);
+      ctx.stroke();
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(-8, 6 - bobY, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (player.isFishing) {
+      this.drawPlayerFishingRod(player);
     }
 
     // 9. Overhead Color-Coded Contextual Action Pill (Single-word, clean capsule)
