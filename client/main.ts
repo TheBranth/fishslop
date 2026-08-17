@@ -70,17 +70,22 @@ export class GameApp {
       this.updatePlayerInputs();
     });
 
-    // Single-click mouse support on Canvas
+    // Mouse controls on Canvas (Left Click = Action/Work, Right Click = Chaos/Slap/Throw)
     this.canvas.addEventListener('mousedown', (e) => {
       if (e.button === 0) {
-        this.engine.p1Input.actionGrab = true;
-        this.engine.p1Input.actionInteract = true;
-        this.engine.p1Input.isActionHeld = true;
+        this.engine.p1Input.actionPrimary = true;
+        this.engine.p1Input.isActionPrimaryHeld = true;
+      } else if (e.button === 2) {
+        this.engine.p1Input.actionSecondary = true;
       }
     });
 
-    window.addEventListener('mouseup', () => {
-      this.engine.p1Input.isActionHeld = false;
+    this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    window.addEventListener('mouseup', (e) => {
+      if (e.button === 0) {
+        this.engine.p1Input.isActionPrimaryHeld = false;
+      }
     });
 
     // Orientation detector
@@ -99,42 +104,38 @@ export class GameApp {
   }
 
   private updatePlayerInputs(): void {
-    // Player 1 (Blue): WASD + Space/J (Cast/Reel/Cook), K (Throw), L (Slap)
+    // Player 1 (Blue): WASD + Space/J (Button 1: Action/Work/Drop), K (Button 2: Chaos/Slap/Throw)
     let p1dx = 0, p1dy = 0;
     if (this.keysDown.has('KeyA')) p1dx -= 1;
     if (this.keysDown.has('KeyD')) p1dx += 1;
     if (this.keysDown.has('KeyW')) p1dy -= 1;
     if (this.keysDown.has('KeyS')) p1dy += 1;
 
-    const p1ReelHeld = this.keysDown.has('Space') || this.keysDown.has('KeyJ') || this.keysDown.has('KeyH');
+    const p1ActionHeld = this.keysDown.has('Space') || this.keysDown.has('KeyJ');
 
     this.engine.p1Input = {
       dx: p1dx,
       dy: p1dy,
-      actionGrab: this.keysDown.has('Space') || this.keysDown.has('KeyJ') || this.keysDown.has('KeyH'),
-      actionThrow: this.keysDown.has('KeyK'),
-      actionInteract: this.keysDown.has('Space') || this.keysDown.has('KeyJ') || this.keysDown.has('KeyH'),
-      actionSlap: this.keysDown.has('KeyL'),
-      isActionHeld: p1ReelHeld
+      actionPrimary: this.keysDown.has('Space') || this.keysDown.has('KeyJ'),
+      actionSecondary: this.keysDown.has('KeyK'),
+      isActionPrimaryHeld: p1ActionHeld
     };
 
-    // Player 2 (Gold): Arrows + Enter/N (Cast/Reel/Cook), M (Throw), Comma (Slap)
+    // Player 2 (Gold): Arrows + Enter/N (Button 1: Action/Work/Drop), M (Button 2: Chaos/Slap/Throw)
     let p2dx = 0, p2dy = 0;
     if (this.keysDown.has('ArrowLeft')) p2dx -= 1;
     if (this.keysDown.has('ArrowRight')) p2dx += 1;
     if (this.keysDown.has('ArrowUp')) p2dy -= 1;
     if (this.keysDown.has('ArrowDown')) p2dy += 1;
 
-    const p2ReelHeld = this.keysDown.has('Enter') || this.keysDown.has('KeyN');
+    const p2ActionHeld = this.keysDown.has('Enter') || this.keysDown.has('KeyN');
 
     this.engine.p2Input = {
       dx: p2dx,
       dy: p2dy,
-      actionGrab: this.keysDown.has('Enter') || this.keysDown.has('KeyN'),
-      actionThrow: this.keysDown.has('KeyM'),
-      actionInteract: this.keysDown.has('Enter') || this.keysDown.has('KeyN'),
-      actionSlap: this.keysDown.has('Comma'),
-      isActionHeld: p2ReelHeld
+      actionPrimary: this.keysDown.has('Enter') || this.keysDown.has('KeyN'),
+      actionSecondary: this.keysDown.has('KeyM'),
+      isActionPrimaryHeld: p2ActionHeld
     };
   }
 
@@ -358,7 +359,8 @@ export class GameApp {
             draftState: this.engine.state.draftState,
             teamCash: this.engine.state.teamCash,
             isCapsizedScramble: this.engine.state.isCapsizedScramble,
-            capsizeScrambleTimer: this.engine.state.capsizeScrambleTimer
+            capsizeScrambleTimer: this.engine.state.capsizeScrambleTimer,
+            players: this.engine.state.players
           }
         });
       }

@@ -6,14 +6,17 @@ export type PlayerColor = 'blue' | 'yellow' | 'red' | 'green';
 export type StationType = 'cooler' | 'cutting_board' | 'deep_fryer' | 'soup_pot' | 'rod_station' | 'trash_chute';
 export type FishTier = 'T1' | 'T2' | 'T3' | 'T4' | 'Common' | 'Uncommon' | 'Hazard' | 'Boss' | 'Trash';
 
+export interface ContextualAction {
+  label: string;
+  colorHex: string;
+}
+
 export interface PlayerInput {
   dx: number;
   dy: number;
-  actionGrab: boolean;
-  actionThrow: boolean;
-  actionInteract: boolean;
-  actionSlap: boolean;
-  isActionHeld?: boolean;
+  actionPrimary: boolean;      // Button 1: Action / Work / Drop / Cast / Reel / Heave
+  actionSecondary: boolean;    // Button 2: Chaos / Slap / Throw / Cut
+  isActionPrimaryHeld?: boolean;
 }
 
 export interface PlayerState {
@@ -35,6 +38,7 @@ export interface PlayerState {
   score: number;
   privateCash: number;
   activeBounty: SecretBounty | null;
+  contextualAction: ContextualAction | null;
   // Fishing State
   isFishing: boolean;
   fishingState?: 'waiting_bite' | 'biting' | 'reeling';

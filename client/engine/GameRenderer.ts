@@ -691,8 +691,32 @@ export class GameRenderer {
       }
     }
 
-    if (player.isFishing) {
-      this.drawPlayerFishingRod(player);
+    // 9. Overhead Color-Coded Contextual Action Pill (Single-word, clean capsule)
+    if (player.contextualAction) {
+      const act = player.contextualAction;
+      const pillY = player.holdingItemId ? -56 - bobY : -36 - bobY;
+
+      ctx.save();
+      ctx.font = '900 9px "Plus Jakarta Sans", sans-serif';
+      const textMetrics = ctx.measureText(act.label);
+      const pillW = textMetrics.width + 14;
+      const pillH = 15;
+
+      // Dark slate background with color-coded border
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
+      ctx.strokeStyle = act.colorHex;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(-pillW / 2, pillY - pillH / 2, pillW, pillH, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      // Bold color-coded text fill
+      ctx.fillStyle = act.colorHex;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(act.label, 0, pillY + 0.5);
+      ctx.restore();
     }
 
     ctx.restore();

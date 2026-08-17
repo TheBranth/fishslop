@@ -98,31 +98,19 @@
             <span class="text-[10px] uppercase font-bold text-slate-500 mt-2 tracking-widest">Move / Steer</span>
         </div>
 
-        <!-- Right: Arcade Action Buttons (Grab/Interact, Throw, Slap) -->
-        <div class="flex flex-col items-end space-y-3">
+        <!-- Right: Unified 2-Button Arcade Cluster (Action + Chaos) -->
+        <div class="flex flex-col items-end space-y-4">
             
-            <!-- Secondary Buttons Row (Throw & Slap) -->
-            <div class="flex items-center space-x-3">
-                <!-- Throw Button -->
-                <button id="btn-throw" class="action-btn w-16 h-16 rounded-2xl bg-amber-500 active:bg-amber-600 text-slate-950 font-black flex flex-col items-center justify-center border border-amber-300">
-                    <i class="fa-solid fa-hand-holding text-lg"></i>
-                    <span class="text-[10px] font-bold uppercase mt-0.5">THROW</span>
-                </button>
+            <!-- Button 2: Secondary / Chaos (Slap / Throw / Cut) -->
+            <button id="btn-secondary" class="action-btn w-36 h-14 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 active:from-rose-700 active:to-red-700 text-white font-black flex items-center justify-center space-x-2 border-2 border-rose-400/50 shadow-lg shadow-rose-900/40">
+                <i id="btn-secondary-icon" class="fa-solid fa-hand-back-fist text-lg"></i>
+                <span id="btn-secondary-label" class="text-sm font-black uppercase tracking-wider">SLAP</span>
+            </button>
 
-                <!-- Slap Button -->
-                <button id="btn-slap" class="action-btn w-16 h-16 rounded-2xl bg-rose-600 active:bg-rose-700 text-white font-black flex flex-col items-center justify-center border border-rose-400">
-                    <i class="fa-solid fa-hand-back-fist text-lg"></i>
-                    <span class="text-[10px] font-bold uppercase mt-0.5">SLAP</span>
-                </button>
-            </div>
-
-            <!-- Primary Action Button (Grab / Cook / Cast / Conga) -->
-            <button id="btn-grab" class="action-btn w-36 h-20 rounded-3xl bg-gradient-to-r from-teal-500 to-emerald-500 active:from-teal-600 active:to-emerald-600 text-slate-950 font-black flex items-center justify-center space-x-2 border-2 border-teal-200">
-                <i id="btn-grab-icon" class="fa-solid fa-fish text-2xl"></i>
-                <div class="text-left">
-                    <span id="btn-grab-label" class="text-base font-black tracking-wide block uppercase">GRAB / CAST</span>
-                    <span id="btn-grab-sub" class="text-[9px] font-bold opacity-80 block font-mono">Tap or Hold</span>
-                </div>
+            <!-- Button 1: Primary / Contextual Action (Grab / Cook / Drop / Cast / Reel / Heave) -->
+            <button id="btn-primary" class="action-btn w-40 h-24 rounded-3xl bg-gradient-to-r from-teal-500 to-emerald-500 active:from-teal-600 active:to-emerald-600 text-slate-950 font-black flex flex-col items-center justify-center border-2 border-teal-200 shadow-xl shadow-teal-900/50">
+                <span id="btn-primary-label" class="text-xl font-black tracking-wider block uppercase">ACTION</span>
+                <span id="btn-primary-sub" class="text-[10px] font-bold opacity-80 block font-mono mt-0.5">TAP OR HOLD</span>
             </button>
         </div>
     </main>

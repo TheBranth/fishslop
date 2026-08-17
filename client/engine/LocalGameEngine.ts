@@ -11,7 +11,8 @@ import {
   RogueliteLevel,
   DredgedDraftState,
   KrakenBossState,
-  EndgameAuditRecord
+  EndgameAuditRecord,
+  ContextualAction
 } from '../../shared/types';
 import { 
   CANVAS_WIDTH, 
@@ -32,8 +33,8 @@ import { generateCorporateContract, ActiveContractState } from '../../shared/con
 export class LocalGameEngine {
   public state: GameRoomState;
   public oceanShadows: OceanFishShadow[] = [];
-  public p1Input: PlayerInput = { dx: 0, dy: 0, actionGrab: false, actionThrow: false, actionInteract: false, actionSlap: false };
-  public p2Input: PlayerInput = { dx: 0, dy: 0, actionGrab: false, actionThrow: false, actionInteract: false, actionSlap: false };
+  public p1Input: PlayerInput = { dx: 0, dy: 0, actionPrimary: false, actionSecondary: false, isActionPrimaryHeld: false };
+  public p2Input: PlayerInput = { dx: 0, dy: 0, actionPrimary: false, actionSecondary: false, isActionPrimaryHeld: false };
   public botP3Active: boolean = false;
 
   // Roguelite 5-Level Campaign Progression
@@ -98,6 +99,7 @@ export class LocalGameEngine {
           score: 0,
           privateCash: 0,
           activeBounty: null,
+          contextualAction: null,
           isFishing: false,
           congaLeaderId: null,
           congaFollowerIds: [],
@@ -125,6 +127,7 @@ export class LocalGameEngine {
           score: 0,
           privateCash: 0,
           activeBounty: null,
+          contextualAction: null,
           isFishing: false,
           congaLeaderId: null,
           congaFollowerIds: [],
@@ -280,7 +283,7 @@ export class LocalGameEngine {
 
     // 6. Process Players (Movement, Fishing, Kitchen Interactions)
     state.players.forEach(p => {
-      let input = p.id === 'p1' ? this.p1Input : p.id === 'p2' ? this.p2Input : { dx: 0, dy: 0, actionGrab: false, actionThrow: false, actionInteract: false, actionSlap: false };
+      let input: PlayerInput = p.id === 'p1' ? this.p1Input : p.id === 'p2' ? this.p2Input : { dx: 0, dy: 0, actionPrimary: false, actionSecondary: false, isActionPrimaryHeld: false };
 
       if (p.id === 'p3') {
         input = this.getBotInput(p);
@@ -406,27 +409,24 @@ export class LocalGameEngine {
           }
         }
 
-        if (input.actionGrab || input.actionInteract) {
-          this.handleGrabOrInteract(p);
+        // Compute live contextual affordance pill for TV & Controller
+        p.contextualAction = this.computeContextualAction(p);
+
+        // Unified 2-Button Action Dispatch
+        if (input.actionPrimary) {
+          this.handlePrimaryAction(p);
         }
-        if (input.actionThrow) {
-          this.handleThrow(p);
-        }
-        if (input.actionSlap) {
-          this.handleSlap(p);
+        if (input.actionSecondary) {
+          this.handleSecondaryAction(p);
         }
       }
     });
 
     // Reset single-frame inputs
-    this.p1Input.actionGrab = false;
-    this.p1Input.actionThrow = false;
-    this.p1Input.actionInteract = false;
-    this.p1Input.actionSlap = false;
-    this.p2Input.actionGrab = false;
-    this.p2Input.actionThrow = false;
-    this.p2Input.actionInteract = false;
-    this.p2Input.actionSlap = false;
+    this.p1Input.actionPrimary = false;
+    this.p1Input.actionSecondary = false;
+    this.p2Input.actionPrimary = false;
+    this.p2Input.actionSecondary = false;
 
     // 7. Update Deck Puddles & Screen Shaders
     for (let i = state.deckPuddles.length - 1; i >= 0; i--) {
@@ -704,8 +704,102 @@ export class LocalGameEngine {
     }
   }
 
-  private handleGrabOrInteract(p: PlayerState): void {
-    // High-Side Heave during 6-Second Capsized Scramble!
+  // --- Contextual Affordance Resolver & 2-Button Action Handlers ---
+
+  public computeContextualAction(p: PlayerState): ContextualAction | null {
+    if (p.isStunned) return null;
+
+    // 1. Boat Capsizing Scramble (6s Emergency)
+    if (this.state.isCapsizedScramble) {
+      return { label: 'HEAVE', colorHex: '#ef4444' };
+    }
+
+    // 2. Actively Fishing at Railing
+    if (p.isFishing) {
+      return { label: 'REEL', colorHex: '#22c55e' };
+    }
+
+    // 3. Hands Empty: Proximity Affordances
+    if (!p.holdingItemId) {
+      // Priority A: Floor item in range
+      let nearestItem: EntityItem | null = null;
+      let minItemDist = 50;
+      this.state.items.forEach(item => {
+        if (item.isHeld) return;
+        const dist = Math.hypot(item.x - p.x, item.y - p.y);
+        if (dist < minItemDist) {
+          minItemDist = dist;
+          nearestItem = item;
+        }
+      });
+      if (nearestItem) {
+        return { label: 'GRAB', colorHex: '#f59e0b' };
+      }
+
+      // Priority B: Kitchen Station with completed cooked food
+      const finishedStation = this.state.stations.find(s => {
+        if (!s.heldItem || s.isProcessing || s.type === 'cooler') return false;
+        const dist = Math.hypot(s.x + s.w / 2 - p.x, s.y + s.h / 2 - p.y);
+        return dist < 65;
+      });
+      if (finishedStation) {
+        return { label: 'TAKE', colorHex: '#2dd4bf' };
+      }
+
+      // Priority C: Railing Hotspot for Casting
+      const isNearRailing =
+        p.x < DECK_BOUNDS.minX + 35 ||
+        p.x > DECK_BOUNDS.maxX - 35 ||
+        p.y < DECK_BOUNDS.minY + 35 ||
+        p.y > DECK_BOUNDS.maxY - 35;
+      if (isNearRailing) {
+        return { label: 'CAST', colorHex: '#38bdf8' };
+      }
+
+      // Priority D: Heavy Teammate for Conga Line
+      const heavyCarrier = this.state.players.find(other => {
+        if (other.id === p.id || !other.holdingItemId) return false;
+        const dist = Math.hypot(other.x - p.x, other.y - p.y);
+        if (dist > 55) return false;
+        const item = this.state.items.find(i => i.id === other.holdingItemId);
+        return item && item.mass > MAX_SOLO_LIFT_WEIGHT;
+      });
+      if (heavyCarrier) {
+        return { label: 'CONGA', colorHex: '#facc15' };
+      }
+
+      return null;
+    }
+
+    // 4. Holding an Item: Station Work or Gentle Drop
+    const nearStation = this.state.stations.find(s =>
+      Math.hypot(s.x + s.w / 2 - p.x, s.y + s.h / 2 - p.y) < 65
+    );
+
+    if (nearStation) {
+      if (nearStation.type === 'cooler') {
+        return { label: 'BANK', colorHex: '#4ade80' };
+      }
+      if (nearStation.type === 'trash_chute') {
+        return { label: 'TRASH', colorHex: '#f43f5e' };
+      }
+      if (nearStation.type === 'cutting_board') {
+        return { label: 'FILLET', colorHex: '#2dd4bf' };
+      }
+      if (nearStation.type === 'deep_fryer') {
+        return { label: 'FRY', colorHex: '#fb923c' };
+      }
+      if (nearStation.type === 'soup_pot') {
+        return { label: 'SOUP', colorHex: '#34d399' };
+      }
+    }
+
+    // Open deck space -> Gentle Drop
+    return { label: 'DROP', colorHex: '#94a3b8' };
+  }
+
+  private handlePrimaryAction(p: PlayerState): void {
+    // 1. High-Side Heave during 6-Second Capsized Scramble!
     if (this.state.isCapsizedScramble) {
       const boatCenterX = CANVAS_WIDTH / 2;
       const isBoatTiltedRight = this.state.boatAngle > 0;
@@ -728,6 +822,7 @@ export class LocalGameEngine {
       return;
     }
 
+    // 2. Active Minigame Progression on Stations
     const nearStation = this.state.stations.find(s => 
       Math.hypot(s.x + s.w/2 - p.x, s.y + s.h/2 - p.y) < 65
     );
@@ -815,7 +910,6 @@ export class LocalGameEngine {
               this.checkBounties('break_knife', { player: p });
             } else if (validation.penaltyType === 'flash_explosion') {
               this.triggerExplosion(nearStation.x, nearStation.y);
-              // consume the exploded bombfish
               this.state.items = this.state.items.filter(i => i.id !== held.id);
               p.holdingItemId = null;
             }
@@ -852,51 +946,22 @@ export class LocalGameEngine {
       }
     }
 
-    // Drop item on deck / Release Conga Line
+    // 3. If Holding an Item in Open Space -> Gentle Drop!
     if (p.holdingItemId) {
       const held = this.state.items.find(i => i.id === p.holdingItemId);
       if (held) {
         held.isHeld = false;
         held.heldByPlayerId = null;
-        held.vx = p.vx * 1.3;
-        held.vy = p.vy * 1.3;
+        held.vx = 0;
+        held.vy = 0;
         p.holdingItemId = null;
         this.onEvent?.('sfx', 'drop');
+        this.onEvent?.('popup', '', { text: 'DROP', color: '#94a3b8', x: p.x, y: p.y - 20 });
       }
       return;
     }
 
-    if (p.congaLeaderId) {
-      // Disconnect from Conga Line
-      const leader = this.state.players.find(l => l.id === p.congaLeaderId);
-      if (leader) {
-        leader.congaFollowerIds = leader.congaFollowerIds.filter(id => id !== p.id);
-      }
-      p.congaLeaderId = null;
-      this.addFeedMessage(`💨 ${p.name} stepped out of the Conga Line.`, 'info');
-      return;
-    }
-
-    // Check for nearby teammate holding a heavy item (>4.0kg) to join Conga Line!
-    const heavyCarrier = this.state.players.find(other => {
-      if (other.id === p.id || !other.holdingItemId) return false;
-      const dist = Math.hypot(other.x - p.x, other.y - p.y);
-      if (dist > 55) return false;
-      const item = this.state.items.find(i => i.id === other.holdingItemId);
-      return item && item.mass > MAX_SOLO_LIFT_WEIGHT;
-    });
-
-    if (heavyCarrier) {
-      p.congaLeaderId = heavyCarrier.id;
-      if (!heavyCarrier.congaFollowerIds.includes(p.id)) {
-        heavyCarrier.congaFollowerIds.push(p.id);
-      }
-      this.onEvent?.('sfx', 'pickup');
-      this.addFeedMessage(`🎉 CONGA HOIST! ${p.name} linked up with ${heavyCarrier.name} to carry the heavy catch! (+Speed Bonus)`, 'score');
-      return;
-    }
-
-    // Pick up loose item on deck
+    // 4. If Hands Empty: Grab Floor Item Priority
     let nearest: EntityItem | null = null;
     let minDist = 50;
     this.state.items.forEach(item => {
@@ -921,16 +986,70 @@ export class LocalGameEngine {
       return;
     }
 
-    // Cast from railing
+    // 5. If near Railing -> Cast Fishing Rod
     const isNearRailing = 
       p.x < DECK_BOUNDS.minX + 35 ||
       p.x > DECK_BOUNDS.maxX - 35 ||
       p.y < DECK_BOUNDS.minY + 35 ||
       p.y > DECK_BOUNDS.maxY - 35;
 
-    if (isNearRailing) {
+    if (isNearRailing && !p.isFishing) {
       this.startFishing(p);
+      return;
     }
+
+    // 6. Join Conga Line if near Heavy Carrier
+    const heavyCarrier = this.state.players.find(other => {
+      if (other.id === p.id || !other.holdingItemId) return false;
+      const dist = Math.hypot(other.x - p.x, other.y - p.y);
+      if (dist > 55) return false;
+      const item = this.state.items.find(i => i.id === other.holdingItemId);
+      return item && item.mass > MAX_SOLO_LIFT_WEIGHT;
+    });
+
+    if (heavyCarrier) {
+      p.congaLeaderId = heavyCarrier.id;
+      if (!heavyCarrier.congaFollowerIds.includes(p.id)) {
+        heavyCarrier.congaFollowerIds.push(p.id);
+      }
+      this.onEvent?.('sfx', 'pickup');
+      this.onEvent?.('popup', '', { text: '🤝 CONGA!', color: '#facc15', x: p.x, y: p.y - 25 });
+      this.addFeedMessage(`🎉 CONGA HOIST! ${p.name} linked up with ${heavyCarrier.name} to carry the heavy catch! (+Speed Bonus)`, 'score');
+      return;
+    }
+
+    // 7. Disconnect from Conga if already in one
+    if (p.congaLeaderId) {
+      const leader = this.state.players.find(l => l.id === p.congaLeaderId);
+      if (leader) {
+        leader.congaFollowerIds = leader.congaFollowerIds.filter(id => id !== p.id);
+      }
+      p.congaLeaderId = null;
+      this.addFeedMessage(`💨 ${p.name} stepped out of the Conga Line.`, 'info');
+      return;
+    }
+  }
+
+  private handleSecondaryAction(p: PlayerState): void {
+    // 1. Cut Line if Fishing
+    if (p.isFishing) {
+      p.isFishing = false;
+      p.fishingState = undefined;
+      p.reelProgress = 0;
+      this.onEvent?.('sfx', 'slap');
+      this.onEvent?.('popup', '', { text: 'LINE CUT!', color: '#94a3b8', x: p.x, y: p.y - 20 });
+      this.addFeedMessage(`✂️ ${p.name} released the line.`, 'info');
+      return;
+    }
+
+    // 2. Throw / Yeet if Holding an Item
+    if (p.holdingItemId) {
+      this.handleThrow(p);
+      return;
+    }
+
+    // 3. Slap nearby players if Hands Empty
+    this.handleSlap(p);
   }
 
   private triggerElectricShock(x: number, y: number): void {
@@ -1027,7 +1146,7 @@ export class LocalGameEngine {
       const t = Date.now() * 0.0015 * speedMod;
       p.reelNeedle = 0.5 + Math.sin(t * 2.2) * 0.38 + Math.cos(t * 1.1) * 0.08;
 
-      const isPushing = input.isActionHeld || input.actionGrab || input.actionInteract || input.dx > 0.1 || input.dy < -0.1;
+      const isPushing = input.isActionPrimaryHeld || input.actionPrimary || input.dx > 0.1 || input.dy < -0.1;
 
       if (isPushing) {
         p.reelSweetSpot = Math.min(0.85, (p.reelSweetSpot || 0.2) + 0.018);
@@ -1551,6 +1670,7 @@ export class LocalGameEngine {
           score: 0,
           privateCash: 0,
           activeBounty: generateGatedSecretBounty(2, this.currentLevelIndex + 1, this.unlockedStations, this.activePerks),
+          contextualAction: null,
           isFishing: false,
           congaLeaderId: null,
           congaFollowerIds: [],
@@ -1570,10 +1690,9 @@ export class LocalGameEngine {
     return {
       dx: Math.sin(t) * 0.8,
       dy: Math.cos(t * 1.3) * 0.8,
-      actionGrab: false,
-      actionThrow: false,
-      actionInteract: false,
-      actionSlap: Math.random() < 0.005
+      actionPrimary: false,
+      actionSecondary: Math.random() < 0.005,
+      isActionPrimaryHeld: false
     };
   }
 

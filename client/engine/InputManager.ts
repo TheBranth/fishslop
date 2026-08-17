@@ -6,10 +6,9 @@ export class InputManager {
   private currentInput: PlayerInput = {
     dx: 0,
     dy: 0,
-    actionGrab: false,
-    actionThrow: false,
-    actionInteract: false,
-    actionSlap: false
+    actionPrimary: false,
+    actionSecondary: false,
+    isActionPrimaryHeld: false
   };
 
   private keysDown: Set<string> = new Set();
@@ -46,18 +45,14 @@ export class InputManager {
 
     // Return a copy and reset instantaneous action triggers
     const inputCopy = { ...this.currentInput };
-    this.currentInput.actionGrab = false;
-    this.currentInput.actionThrow = false;
-    this.currentInput.actionInteract = false;
-    this.currentInput.actionSlap = false;
+    this.currentInput.actionPrimary = false;
+    this.currentInput.actionSecondary = false;
     return inputCopy;
   }
 
-  public triggerAction(action: 'grab' | 'throw' | 'interact' | 'slap'): void {
-    if (action === 'grab') this.currentInput.actionGrab = true;
-    if (action === 'throw') this.currentInput.actionThrow = true;
-    if (action === 'interact') this.currentInput.actionInteract = true;
-    if (action === 'slap') this.currentInput.actionSlap = true;
+  public triggerAction(action: 'primary' | 'secondary'): void {
+    if (action === 'primary') this.currentInput.actionPrimary = true;
+    if (action === 'secondary') this.currentInput.actionSecondary = true;
 
     // Mobile haptic pulse if available
     if (navigator.vibrate) {
@@ -81,20 +76,22 @@ export class InputManager {
     window.addEventListener('keydown', (e) => {
       this.keysDown.add(e.code);
 
-      // Instantaneous actions
-      if (e.code === 'Space' || e.code === 'KeyE' || e.code === 'Enter') {
-        this.currentInput.actionGrab = true;
+      // Button 1 (Action / Work / Drop / Cast / Reel / Heave)
+      if (e.code === 'Space' || e.code === 'KeyJ' || e.code === 'Enter') {
+        this.currentInput.actionPrimary = true;
+        this.currentInput.isActionPrimaryHeld = true;
       }
-      if (e.code === 'KeyF' || e.code === 'ShiftRight' || e.code === 'KeyQ') {
-        this.currentInput.actionThrow = true;
-      }
-      if (e.code === 'KeyR' || e.code === 'ControlRight') {
-        this.currentInput.actionSlap = true;
+      // Button 2 (Chaos / Slap / Throw / Cut)
+      if (e.code === 'KeyK' || e.code === 'KeyM' || e.code === 'ShiftRight') {
+        this.currentInput.actionSecondary = true;
       }
     });
 
     window.addEventListener('keyup', (e) => {
       this.keysDown.delete(e.code);
+      if (e.code === 'Space' || e.code === 'KeyJ' || e.code === 'Enter') {
+        this.currentInput.isActionPrimaryHeld = false;
+      }
     });
   }
 }

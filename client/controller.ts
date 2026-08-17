@@ -14,7 +14,7 @@ export class PhoneControllerApp {
   public roomCode: string = 'FISH1';
   private playerIndex: number = 0;
 
-  // Joystick Input State
+  // Joystick & 2-Button Input State
   private joystickZone: HTMLElement;
   private joystickKnob: HTMLElement;
   private joystickActive: boolean = false;
@@ -22,11 +22,9 @@ export class PhoneControllerApp {
   private currentInput: PlayerInput = {
     dx: 0,
     dy: 0,
-    actionGrab: false,
-    actionThrow: false,
-    actionInteract: false,
-    actionSlap: false,
-    isActionHeld: false
+    actionPrimary: false,
+    actionSecondary: false,
+    isActionPrimaryHeld: false
   };
 
   private activeBounty: SecretBounty | null = null;
@@ -146,50 +144,38 @@ export class PhoneControllerApp {
     });
   }
 
-  // --- Right Thumb Action Buttons ---
+  // --- Right Thumb 2-Button Arcade Cluster (Action + Chaos) ---
 
   private setupActionButtons(): void {
-    const btnGrab = document.getElementById('btn-grab')!;
-    const btnThrow = document.getElementById('btn-throw')!;
-    const btnSlap = document.getElementById('btn-slap')!;
+    const btnPrimary = document.getElementById('btn-primary')!;
+    const btnSecondary = document.getElementById('btn-secondary')!;
 
-    // Grab / Interact Button (Tap & Hold)
-    const onGrabDown = () => {
-      this.currentInput.actionGrab = true;
-      this.currentInput.actionInteract = true;
-      this.currentInput.isActionHeld = true;
+    // Button 1: Primary Action (Grab / Cook / Drop / Cast / Reel / Heave)
+    const onPrimaryDown = () => {
+      this.currentInput.actionPrimary = true;
+      this.currentInput.isActionPrimaryHeld = true;
       this.triggerHaptic(20);
       this.soundSystem.play('pickup');
     };
 
-    const onGrabUp = () => {
-      this.currentInput.isActionHeld = false;
+    const onPrimaryUp = () => {
+      this.currentInput.isActionPrimaryHeld = false;
     };
 
-    btnGrab.addEventListener('touchstart', (e) => { e.preventDefault(); onGrabDown(); }, { passive: false });
-    btnGrab.addEventListener('touchend', onGrabUp);
-    btnGrab.addEventListener('mousedown', onGrabDown);
-    btnGrab.addEventListener('mouseup', onGrabUp);
+    btnPrimary.addEventListener('touchstart', (e) => { e.preventDefault(); onPrimaryDown(); }, { passive: false });
+    btnPrimary.addEventListener('touchend', onPrimaryUp);
+    btnPrimary.addEventListener('mousedown', onPrimaryDown);
+    btnPrimary.addEventListener('mouseup', onPrimaryUp);
 
-    // Throw Button
-    const onThrowDown = () => {
-      this.currentInput.actionThrow = true;
-      this.triggerHaptic(30);
-      this.soundSystem.play('throw');
-    };
-
-    btnThrow.addEventListener('touchstart', (e) => { e.preventDefault(); onThrowDown(); }, { passive: false });
-    btnThrow.addEventListener('mousedown', onThrowDown);
-
-    // Slap Button
-    const onSlapDown = () => {
-      this.currentInput.actionSlap = true;
-      this.triggerHaptic(40);
+    // Button 2: Secondary / Chaos (Slap / Throw / Cut Line)
+    const onSecondaryDown = () => {
+      this.currentInput.actionSecondary = true;
+      this.triggerHaptic(35);
       this.soundSystem.play('slap');
     };
 
-    btnSlap.addEventListener('touchstart', (e) => { e.preventDefault(); onSlapDown(); }, { passive: false });
-    btnSlap.addEventListener('mousedown', onSlapDown);
+    btnSecondary.addEventListener('touchstart', (e) => { e.preventDefault(); onSecondaryDown(); }, { passive: false });
+    btnSecondary.addEventListener('mousedown', onSecondaryDown);
   }
 
   // --- Broadcast Channel / WebSocket Bridge ---
@@ -234,20 +220,47 @@ export class PhoneControllerApp {
       document.getElementById('modal-ctrl-draft')?.classList.add('hidden');
     }
 
-    // 🚨 6-Second Righting Scramble Heave Mode
-    const grabLabel = document.getElementById('btn-grab-label');
-    const grabSub = document.getElementById('btn-grab-sub');
+    // Dynamic 2-Button Label & Color Morphing
+    const primaryLabel = document.getElementById('btn-primary-label');
+    const secondaryLabel = document.getElementById('btn-secondary-label');
+    const secondaryIcon = document.getElementById('btn-secondary-icon');
     const statusText = document.getElementById('ctrl-status-text');
+    const btnPrimary = document.getElementById('btn-primary');
+
+    const me = state.players?.find((p: any) => p.id === this.playerId);
 
     if (state.isCapsizedScramble) {
-      if (grabLabel) grabLabel.textContent = '💪 HEAVE SHIP!';
-      if (grabSub) grabSub.textContent = `SPAM ON HIGH SIDE (${state.capsizeScrambleTimer?.toFixed(1) || '6.0'}s)`;
+      if (primaryLabel) primaryLabel.textContent = 'HEAVE';
+      if (btnPrimary) {
+        btnPrimary.style.borderColor = '#ef4444';
+        btnPrimary.style.boxShadow = '0 0 15px rgba(239, 68, 68, 0.6)';
+      }
       if (statusText) statusText.textContent = '🚨 SPRINT TO HIGH SIDE & SPAM HEAVE!';
-    } else {
-      if (grabLabel && grabLabel.textContent === '💪 HEAVE SHIP!') {
-        grabLabel.textContent = 'GRAB / CAST';
-        if (grabSub) grabSub.textContent = 'Tap or Hold';
-        if (statusText) statusText.textContent = '🎣 WALK TO RAILING OR STATIONS';
+    } else if (me) {
+      // Button 1: Contextual Action Sync
+      if (me.contextualAction) {
+        if (primaryLabel) primaryLabel.textContent = me.contextualAction.label;
+        if (btnPrimary) {
+          btnPrimary.style.borderColor = me.contextualAction.colorHex;
+          btnPrimary.style.boxShadow = `0 0 15px ${me.contextualAction.colorHex}66`;
+        }
+        if (statusText) statusText.textContent = `🔘 ${me.contextualAction.label}`;
+      } else {
+        if (primaryLabel) primaryLabel.textContent = 'ACTION';
+        if (btnPrimary) {
+          btnPrimary.style.borderColor = '#2dd4bf';
+          btnPrimary.style.boxShadow = 'none';
+        }
+        if (statusText) statusText.textContent = 'WALK TO STATIONS OR RAILING';
+      }
+
+      // Button 2: Chaos Mode Sync (Slap vs Throw)
+      if (me.holdingItemId) {
+        if (secondaryLabel) secondaryLabel.textContent = 'THROW';
+        if (secondaryIcon) secondaryIcon.className = 'fa-solid fa-hand-holding text-lg';
+      } else {
+        if (secondaryLabel) secondaryLabel.textContent = 'SLAP';
+        if (secondaryIcon) secondaryIcon.className = 'fa-solid fa-hand-back-fist text-lg';
       }
     }
   }
@@ -263,10 +276,8 @@ export class PhoneControllerApp {
       }
 
       // Reset single-frame flags
-      this.currentInput.actionGrab = false;
-      this.currentInput.actionThrow = false;
-      this.currentInput.actionInteract = false;
-      this.currentInput.actionSlap = false;
+      this.currentInput.actionPrimary = false;
+      this.currentInput.actionSecondary = false;
     }, 1000 / 60);
   }
 
