@@ -2,12 +2,14 @@
 
 import { SoundSystem } from './engine/SoundSystem';
 import { MinigameController } from './engine/MinigameController';
+import { NetworkManager } from './engine/NetworkManager';
 import { PlayerInput, SecretBounty, DredgedDraftState } from '../shared/types';
 import { PLAYER_PROFILES } from '../shared/constants';
 
 export class PhoneControllerApp {
   public soundSystem: SoundSystem;
   public minigameController: MinigameController;
+  public networkManager: NetworkManager = new NetworkManager();
   private minigameCanvas: HTMLCanvasElement;
 
   public playerId: string = 'p1';
@@ -38,23 +40,95 @@ export class PhoneControllerApp {
     this.joystickZone = document.getElementById('joystick-zone')!;
     this.joystickKnob = document.getElementById('joystick-knob')!;
 
-    this.parseURLParams();
     this.setupJoystick();
     this.setupActionButtons();
     this.setupBroadcastChannel();
+    this.setupNetworkBridge();
+    this.parseURLParams();
     this.startInputLoop();
+  }
+
+  private setupNetworkBridge(): void {
+    this.networkManager.onStateUpdate = (state: any) => {
+      this.handleHostState(state);
+    };
+
+    this.networkManager.onMinigameTrigger = (data: { stationType: string }) => {
+      this.openStationMinigame(data.stationType);
+    };
   }
 
   private parseURLParams(): void {
     const params = new URLSearchParams(window.location.search);
+    const roomParam = params.get('room');
+    const pwdParam = params.get('pwd') || undefined;
+
     if (params.has('player')) {
       this.playerId = params.get('player')!;
       this.playerIndex = this.playerId === 'p2' ? 1 : this.playerId === 'p3' ? 2 : this.playerId === 'p4' ? 3 : 0;
     }
-    if (params.has('room')) {
-      this.roomCode = params.get('room')!.toUpperCase();
+
+    if (roomParam) {
+      this.roomCode = roomParam.toUpperCase();
+      this.connectToVirtualRoom(this.roomCode, pwdParam);
+    } else if (!params.has('player')) {
+      // Prompt user to enter 4-letter room code
+      document.getElementById('modal-ctrl-join-room')?.classList.remove('hidden');
     }
 
+    this.updatePlayerBadge();
+  }
+
+  public async connectToVirtualRoom(roomCode: string, password?: string): Promise<void> {
+    const errElem = document.getElementById('ctrl-join-error-text');
+    if (errElem) errElem.classList.add('hidden');
+
+    try {
+      const res = await this.networkManager.joinRoom(roomCode, 'controller', undefined, password);
+      if (res.success) {
+        this.roomCode = res.roomCode || roomCode;
+        if (res.playerIndex !== undefined) {
+          this.playerIndex = res.playerIndex;
+          this.playerId = `p${this.playerIndex + 1}`;
+        }
+        document.getElementById('modal-ctrl-join-room')?.classList.add('hidden');
+        this.updatePlayerBadge();
+        this.soundSystem.play('bell');
+      } else {
+        if (errElem) {
+          errElem.textContent = res.error || 'Failed to join room';
+          errElem.classList.remove('hidden');
+        }
+        document.getElementById('modal-ctrl-join-room')?.classList.remove('hidden');
+      }
+    } catch (err: any) {
+      if (errElem) {
+        errElem.textContent = err.message || 'Connection error';
+        errElem.classList.remove('hidden');
+      }
+      document.getElementById('modal-ctrl-join-room')?.classList.remove('hidden');
+    }
+  }
+
+  public submitJoinRoom(): void {
+    const codeInput = document.getElementById('ctrl-join-code-input') as HTMLInputElement;
+    const pwdInput = document.getElementById('ctrl-join-pwd-input') as HTMLInputElement;
+    const code = codeInput?.value?.trim()?.toUpperCase();
+    const pwd = pwdInput?.value?.trim() || undefined;
+
+    if (!code || code.length < 3) {
+      const errElem = document.getElementById('ctrl-join-error-text');
+      if (errElem) {
+        errElem.textContent = 'Please enter a valid room code';
+        errElem.classList.remove('hidden');
+      }
+      return;
+    }
+
+    this.connectToVirtualRoom(code, pwd);
+  }
+
+  private updatePlayerBadge(): void {
     const prof = PLAYER_PROFILES[this.playerIndex] || PLAYER_PROFILES[0];
     const nameElem = document.getElementById('ctrl-player-name');
     const dotElem = document.getElementById('ctrl-player-dot');
@@ -267,13 +341,8 @@ export class PhoneControllerApp {
 
   private startInputLoop(): void {
     this.sendInterval = setInterval(() => {
-      if (this.channel) {
-        this.channel.postMessage({
-          type: 'PLAYER_INPUT',
-          playerId: this.playerId,
-          input: { ...this.currentInput }
-        });
-      }
+      // Send through NetworkManager (Virtual Room WebSockets + Local Bus)
+      this.networkManager.sendInput(this.currentInput, this.playerIndex);
 
       // Reset single-frame flags
       this.currentInput.actionPrimary = false;
@@ -396,13 +465,7 @@ export class PhoneControllerApp {
   public voteCrate(crateId: string): void {
     this.triggerHaptic(25);
     this.soundSystem.play('pickup');
-    if (this.channel) {
-      this.channel.postMessage({
-        type: 'VOTE_DRAFT_CRATE',
-        playerId: this.playerId,
-        crateId
-      });
-    }
+    this.networkManager.voteDraftCrate(crateId);
   }
 
   private triggerHaptic(pattern: number | number[]): void {

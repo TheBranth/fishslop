@@ -188,6 +188,31 @@
         </div>
     </div>
 
+    <!-- ROOM & PASSWORD JOIN MODAL (If launched without direct URL params) -->
+    <div id="modal-ctrl-join-room" class="fixed inset-0 bg-slate-950/95 backdrop-blur-xl z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700/60 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-teal-500/20 text-teal-400 flex items-center justify-center text-2xl mx-auto">
+                <i class="fa-solid fa-gamepad"></i>
+            </div>
+            <div class="space-y-1">
+                <h3 class="text-lg font-black text-white">Join Virtual Trawler</h3>
+                <p class="text-xs text-slate-400">Enter the 4-letter room code shown on the host TV screen:</p>
+            </div>
+            <div class="space-y-2">
+                <input id="ctrl-join-code-input" type="text" maxlength="4" placeholder="CODE (FISH)" class="w-full uppercase font-mono font-black text-center text-lg bg-slate-950 border border-slate-700 rounded-xl py-2 px-3 text-amber-300 placeholder-slate-600 focus:outline-none focus:border-amber-400">
+                <div class="relative">
+                    <i class="fa-solid fa-lock absolute left-3 top-3 text-slate-500 text-xs"></i>
+                    <input id="ctrl-join-pwd-input" type="password" placeholder="Password (if locked)" class="w-full bg-slate-950 border border-slate-700 rounded-xl py-2 pl-8 pr-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-purple-400">
+                </div>
+                <div id="ctrl-join-error-text" class="text-xs text-rose-400 font-bold hidden"></div>
+            </div>
+            <button onclick="window.phoneController.submitJoinRoom()" class="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 text-white font-bold py-2.5 rounded-xl transition shadow-lg flex items-center justify-center space-x-2 text-xs">
+                <i class="fa-solid fa-satellite-dish"></i>
+                <span>CONNECT CONTROLLER</span>
+            </button>
+        </div>
+    </div>
+
     <!-- Controller Client Logic -->
     <script type="module" src="./controller.ts"></script>
 </body>

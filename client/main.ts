@@ -2,14 +2,22 @@ import { LocalGameEngine } from './engine/LocalGameEngine';
 import { GameRenderer } from './engine/GameRenderer';
 import { SoundSystem } from './engine/SoundSystem';
 import { MinigameController } from './engine/MinigameController';
+import { NetworkManager } from './engine/NetworkManager';
 import { FISH_REGISTRY } from '../shared/fishDatabase';
-import { DredgedDraftState, EndgameAuditRecord, SecretBounty } from '../shared/types';
+import { DredgedDraftState, EndgameAuditRecord, SecretBounty, PlayerInput } from '../shared/types';
 
 export class GameApp {
   public engine: LocalGameEngine;
   public renderer: GameRenderer;
   public soundSystem: SoundSystem;
   public minigameController: MinigameController;
+  public networkManager: NetworkManager = new NetworkManager();
+
+  public playMode: 'local' | 'remote_host' | 'remote_viewer' = 'local';
+  public roomCode: string | null = null;
+  public roomPassword?: string;
+  public remoteState: any = null;
+
   private canvas: HTMLCanvasElement;
   private isAudioEnabled: boolean = true;
   private keysDown: Set<string> = new Set();
@@ -25,9 +33,57 @@ export class GameApp {
 
     this.setupEventListeners();
     this.setupBroadcastBus();
+    this.setupNetworkManager();
     this.setupEngineCallbacks();
     this.populateFishopedia();
+    this.checkInitialURLParams();
     this.initLoop();
+  }
+
+  private setupNetworkManager(): void {
+    // When remote player inputs arrive (on Host)
+    this.networkManager.onRemoteInput = (data) => {
+      if (this.playMode === 'remote_host' || this.playMode === 'local') {
+        const input = data.input;
+        if (data.playerIndex === 0) this.engine.p1Input = { ...input };
+        else if (data.playerIndex === 1) this.engine.p2Input = { ...input };
+        else if (data.playerIndex === 2) {
+          if (this.engine.botP3Active) this.engine.botP3Active = false;
+          (this.engine as any).p3Input = { ...input };
+        }
+      }
+    };
+
+    // When remote draft votes arrive (on Host)
+    this.networkManager.onRemoteDraftVote = (data) => {
+      if (this.playMode === 'remote_host' || this.playMode === 'local') {
+        this.engine.voteForDraftCrate(`p${data.playerIndex + 1}`, data.crateId);
+      }
+    };
+
+    // When remote viewer receives host state updates
+    this.networkManager.onStateUpdate = (state) => {
+      if (this.playMode === 'remote_viewer') {
+        this.remoteState = state;
+      }
+    };
+
+    this.networkManager.onRemotePlayerJoined = (data) => {
+      this.soundSystem.play('bell');
+      this.engine.addFeedMessage(`👋 Sailor joined virtual room (${data.name || 'P' + ((data.playerIndex || 0) + 1)})!`, 'info');
+    };
+  }
+
+  private checkInitialURLParams(): void {
+    const params = new URLSearchParams(window.location.search);
+    const room = params.get('room');
+    const pwd = params.get('pwd') || undefined;
+
+    if (room) {
+      this.joinRemoteRoomDirect(room, pwd);
+    } else {
+      document.getElementById('modal-mode-select')?.classList.remove('hidden');
+    }
   }
 
   private setupBroadcastBus(): void {
@@ -137,6 +193,18 @@ export class GameApp {
       actionSecondary: this.keysDown.has('KeyM'),
       isActionPrimaryHeld: p2ActionHeld
     };
+
+    // If playing as remote viewer, send player inputs to the virtual room host
+    if (this.playMode === 'remote_viewer') {
+      const viewerInput: PlayerInput = {
+        dx: p1dx !== 0 ? p1dx : p2dx,
+        dy: p1dy !== 0 ? p1dy : p2dy,
+        actionPrimary: (this.keysDown.has('Space') || this.keysDown.has('KeyJ') || this.keysDown.has('Enter') || this.keysDown.has('KeyN')),
+        actionSecondary: (this.keysDown.has('KeyK') || this.keysDown.has('KeyM')),
+        isActionPrimaryHeld: p1ActionHeld || p2ActionHeld
+      };
+      this.networkManager.sendInput(viewerInput);
+    }
   }
 
   private setupEngineCallbacks(): void {
@@ -327,22 +395,36 @@ export class GameApp {
       const dt = Math.min(0.1, (currentTime - this.lastTime) / 1000);
       this.lastTime = currentTime;
 
-      this.engine.tick();
-      this.minigameController.updateReel(dt);
-      this.minigameController.updateFillet(dt);
-      this.minigameController.updateFryer(dt);
-      this.minigameController.updateSonar(dt);
-      this.minigameController.updateRinse(dt);
+      if (this.playMode === 'remote_viewer') {
+        // Remote viewer renders synced state from the host
+        if (this.remoteState) {
+          this.renderer.render(this.remoteState, []);
+          this.updateHUD(this.remoteState);
+        }
+      } else {
+        // Local TV or Remote Host runs authoritative simulation
+        this.engine.tick();
+        this.minigameController.updateReel(dt);
+        this.minigameController.updateFillet(dt);
+        this.minigameController.updateFryer(dt);
+        this.minigameController.updateSonar(dt);
+        this.minigameController.updateRinse(dt);
 
-      this.renderer.render(this.engine.state, this.engine.oceanShadows);
-      this.minigameController.renderOverlay();
+        this.renderer.render(this.engine.state, this.engine.oceanShadows);
+        this.minigameController.renderOverlay();
+
+        // Broadcast host state snapshot to remote room & local bus
+        this.networkManager.broadcastHostState(this.engine.state);
+        this.updateHUD(this.engine.state);
+      }
 
       // Dynamic Sea Shanty Background Music Tempo Transition
       if (this.isAudioEnabled) {
-        if (this.engine.state.gameState === 'playing') {
-          if (this.engine.levelTimeLeft <= 18) {
+        const activeState = this.playMode === 'remote_viewer' && this.remoteState ? this.remoteState : this.engine.state;
+        if (activeState && activeState.gameState === 'playing') {
+          if (activeState.timeLeft <= 18) {
             this.soundSystem.setMusicIntensity('panic');
-          } else if (this.engine.state.level.isBossLevel) {
+          } else if (activeState.level?.isBossLevel) {
             this.soundSystem.setMusicIntensity('boss');
           } else {
             this.soundSystem.setMusicIntensity('normal');
@@ -350,29 +432,14 @@ export class GameApp {
         }
       }
 
-      if (this.channel) {
-        this.channel.postMessage({
-          type: 'HOST_STATE_UPDATE',
-          data: {
-            boatAngle: this.engine.state.boatAngle,
-            gameState: this.engine.state.gameState,
-            draftState: this.engine.state.draftState,
-            teamCash: this.engine.state.teamCash,
-            isCapsizedScramble: this.engine.state.isCapsizedScramble,
-            capsizeScrambleTimer: this.engine.state.capsizeScrambleTimer,
-            players: this.engine.state.players
-          }
-        });
-      }
-
-      this.updateHUD();
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
   }
 
-  private updateHUD(): void {
-    const { state } = this.engine;
+  private updateHUD(activeState?: any): void {
+    const state = activeState || this.engine.state;
+    if (!state || !state.level) return;
     const isBoss = state.level.isBossLevel;
 
     // Level Badge & Subtitle
@@ -418,8 +485,8 @@ export class GameApp {
 
     // Live Feed
     const feed = document.getElementById('live-feed-container');
-    if (feed) {
-      feed.innerHTML = state.feedMessages.map(msg => {
+    if (feed && state.feedMessages) {
+      feed.innerHTML = state.feedMessages.map((msg: any) => {
         const bg = msg.type === 'score' ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40' :
                    msg.type === 'hazard' ? 'bg-rose-950/90 text-rose-300 border-rose-500/40' :
                    'bg-slate-900/90 text-slate-200 border-slate-700';
@@ -514,6 +581,173 @@ export class GameApp {
         </div>
       </div>
     `).join('');
+  }
+
+  // --- Mode Selection & Virtual Room Online Support ---
+
+  public startLocalMode(): void {
+    this.playMode = 'local';
+    document.getElementById('modal-mode-select')?.classList.add('hidden');
+    const modeText = document.getElementById('hud-mode-text');
+    if (modeText) modeText.textContent = 'Local TV';
+    document.getElementById('hud-room-badge')?.classList.add('hidden');
+
+    const origin = window.location.origin;
+    this.updatePhoneModalLinks('LOCAL', `${origin}/controller.html`);
+    this.soundSystem.play('bell');
+  }
+
+  public async createRemoteRoom(): Promise<void> {
+    const pwdInput = document.getElementById('input-host-password') as HTMLInputElement;
+    const password = pwdInput?.value?.trim() || undefined;
+
+    try {
+      const res = await this.networkManager.createRoom(password);
+      this.playMode = 'remote_host';
+      this.roomCode = res.roomCode;
+      this.roomPassword = password;
+
+      document.getElementById('modal-mode-select')?.classList.add('hidden');
+
+      // Update Top HUD Room Badge
+      const roomBadge = document.getElementById('hud-room-badge');
+      const roomCodeElem = document.getElementById('hud-room-code');
+      const roomLockElem = document.getElementById('hud-room-lock');
+      const modeText = document.getElementById('hud-mode-text');
+
+      if (roomBadge) roomBadge.classList.remove('hidden');
+      if (roomCodeElem) roomCodeElem.textContent = res.roomCode;
+      if (roomLockElem) {
+        if (res.hasPassword) roomLockElem.classList.remove('hidden');
+        else roomLockElem.classList.add('hidden');
+      }
+      if (modeText) modeText.textContent = `Host (${res.roomCode})`;
+
+      // Update Phone Connect Modal
+      this.updatePhoneModalLinks(res.roomCode, res.controllerUrl, res.hasPassword);
+
+      this.soundSystem.play('victory');
+      this.engine.addFeedMessage(`🌐 Virtual Room ${res.roomCode} created! Share invite link with crew.`, 'info');
+
+      // Auto-show phone connect modal with QR code
+      this.togglePhoneModal();
+    } catch (e: any) {
+      alert('Failed to create virtual room: ' + e.message);
+    }
+  }
+
+  public async joinRemoteRoom(): Promise<void> {
+    const codeInput = document.getElementById('input-join-code') as HTMLInputElement;
+    const pwdInput = document.getElementById('input-join-password') as HTMLInputElement;
+    const errElem = document.getElementById('text-join-error');
+
+    const code = codeInput?.value?.trim()?.toUpperCase();
+    const pwd = pwdInput?.value?.trim() || undefined;
+
+    if (!code || code.length < 3) {
+      if (errElem) {
+        errElem.textContent = 'Please enter a 4-letter room code.';
+        errElem.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (errElem) errElem.classList.add('hidden');
+    await this.joinRemoteRoomDirect(code, pwd);
+  }
+
+  public async joinRemoteRoomDirect(roomCode: string, password?: string): Promise<void> {
+    const errElem = document.getElementById('text-join-error');
+    try {
+      const res = await this.networkManager.joinRoom(roomCode, 'viewer', 'Remote Sailor', password);
+      if (res.success) {
+        this.playMode = 'remote_viewer';
+        this.roomCode = res.roomCode || roomCode;
+        this.roomPassword = password;
+
+        document.getElementById('modal-mode-select')?.classList.add('hidden');
+
+        // Update Top HUD Room Badge
+        const roomBadge = document.getElementById('hud-room-badge');
+        const roomCodeElem = document.getElementById('hud-room-code');
+        const roomLockElem = document.getElementById('hud-room-lock');
+        const modeText = document.getElementById('hud-mode-text');
+
+        if (roomBadge) roomBadge.classList.remove('hidden');
+        if (roomCodeElem) roomCodeElem.textContent = this.roomCode;
+        if (roomLockElem) {
+          if (res.hasPassword) roomLockElem.classList.remove('hidden');
+          else roomLockElem.classList.add('hidden');
+        }
+        if (modeText) modeText.textContent = `Viewing (${this.roomCode})`;
+
+        this.soundSystem.play('bell');
+        this.engine.addFeedMessage(`🌐 Joined Virtual Room ${this.roomCode}! Synchronizing stream...`, 'info');
+      } else {
+        if (errElem) {
+          errElem.textContent = res.error || 'Failed to join room.';
+          errElem.classList.remove('hidden');
+        }
+        document.getElementById('modal-mode-select')?.classList.remove('hidden');
+      }
+    } catch (e: any) {
+      if (errElem) {
+        errElem.textContent = e.message || 'Connection error.';
+        errElem.classList.remove('hidden');
+      }
+      document.getElementById('modal-mode-select')?.classList.remove('hidden');
+    }
+  }
+
+  public copyRoomLink(): void {
+    if (!this.roomCode) return;
+    let url = `${window.location.origin}/?room=${this.roomCode}`;
+    if (this.roomPassword) {
+      url += `&pwd=${encodeURIComponent(this.roomPassword)}`;
+    }
+
+    navigator.clipboard?.writeText(url).then(() => {
+      const btn = document.getElementById('btn-copy-link-text');
+      if (btn) {
+        btn.textContent = 'Copied! 🎉';
+        setTimeout(() => { btn.textContent = 'Copy Link'; }, 2000);
+      }
+      this.soundSystem.play('pickup');
+    }).catch(() => {
+      prompt('Copy this room invite link:', url);
+    });
+  }
+
+  private updatePhoneModalLinks(roomCode: string, controllerUrl: string, hasPassword: boolean = false): void {
+    const codeElem = document.getElementById('phone-modal-room-code');
+    const lockElem = document.getElementById('phone-modal-lock-tag');
+    const qrImg = document.getElementById('qr-code-img') as HTMLImageElement;
+
+    if (codeElem) codeElem.textContent = roomCode;
+    if (lockElem) {
+      if (hasPassword) lockElem.classList.remove('hidden');
+      else lockElem.classList.add('hidden');
+    }
+
+    if (qrImg) {
+      qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(controllerUrl)}`;
+    }
+
+    // Direct player links
+    const p1 = document.getElementById('link-ctrl-p1') as HTMLAnchorElement;
+    const p2 = document.getElementById('link-ctrl-p2') as HTMLAnchorElement;
+    const p3 = document.getElementById('link-ctrl-p3') as HTMLAnchorElement;
+    const p4 = document.getElementById('link-ctrl-p4') as HTMLAnchorElement;
+
+    let pwdParam = this.roomPassword ? `&pwd=${encodeURIComponent(this.roomPassword)}` : '';
+    if (p1) p1.href = `/controller.html?room=${roomCode}&player=p1${pwdParam}`;
+    if (p2) p2.href = `/controller.html?room=${roomCode}&player=p2${pwdParam}`;
+    if (p3) p3.href = `/controller.html?room=${roomCode}&player=p3${pwdParam}`;
+    if (p4) p4.href = `/controller.html?room=${roomCode}&player=p4${pwdParam}`;
+  }
+
+  public toggleModeSelectModal(): void {
+    document.getElementById('modal-mode-select')?.classList.toggle('hidden');
   }
 }
 
