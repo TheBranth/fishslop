@@ -109,18 +109,43 @@ export class NetworkManager {
       this.socket.on('triggerMinigame', (data) => {
         this.onMinigameTrigger?.(data);
       });
+
+      this.socket.on('startRoundFromPhone', () => {
+        this.onStartRoundFromPhone?.();
+      });
+
+      this.socket.on('lobbyGameStarted', () => {
+        this.onLobbyGameStarted?.();
+      });
+    });
+  }
+
+  public onStartRoundFromPhone?: () => void;
+  public onLobbyGameStarted?: () => void;
+
+  /**
+   * Checks whether a room name is available
+   */
+  public async checkRoom(roomName: string): Promise<{ available: boolean; exists: boolean }> {
+    const socket = await this.connectSocket();
+    return new Promise((resolve) => {
+      socket.emit('checkRoom', { roomName }, (res: any) => {
+        resolve(res || { available: true, exists: false });
+      });
+      setTimeout(() => resolve({ available: true, exists: false }), 2000);
     });
   }
 
   /**
-   * Host creates a new Virtual Room with an optional password
+   * Host creates a new Virtual Room with optional custom name and password
    */
-  public async createRoom(password?: string): Promise<RoomCreateResult> {
+  public async createRoom(roomName?: string, password?: string): Promise<RoomCreateResult> {
     const socket = await this.connectSocket();
     this.role = 'host';
 
     return new Promise((resolve, reject) => {
       socket.emit('createRoom', {
+        roomName,
         password,
         hostOrigin: window.location.origin
       });
@@ -130,8 +155,21 @@ export class NetworkManager {
         resolve(res);
       });
 
+      socket.once('roomCreateError', (err: { error: string }) => {
+        reject(new Error(err.error || 'Failed to create room'));
+      });
+
       setTimeout(() => reject(new Error('Room creation timed out')), 5000);
     });
+  }
+
+  /**
+   * VIP Player 1 Cast Off from Phone Controller
+   */
+  public startRoundFromController(): void {
+    if (this.socket && this.isConnected) {
+      this.socket.emit('startRoundFromController');
+    }
   }
 
   /**

@@ -36,6 +36,7 @@ export class GameApp {
     this.setupNetworkManager();
     this.setupEngineCallbacks();
     this.populateFishopedia();
+    this.initTitleScreen();
     this.checkInitialURLParams();
     this.initLoop();
   }
@@ -71,6 +72,12 @@ export class GameApp {
     this.networkManager.onRemotePlayerJoined = (data) => {
       this.soundSystem.play('bell');
       this.engine.addFeedMessage(`👋 Sailor joined virtual room (${data.name || 'P' + ((data.playerIndex || 0) + 1)})!`, 'info');
+      this.updateTitleLobbyCrew();
+    };
+
+    // VIP Player 1 casts off from phone controller!
+    this.networkManager.onStartRoundFromPhone = () => {
+      this.startRoundFromPhoneVIP();
     };
   }
 
@@ -81,8 +88,9 @@ export class GameApp {
 
     if (room) {
       this.joinRemoteRoomDirect(room, pwd);
+      this.hideTitleScreen();
     } else {
-      document.getElementById('modal-mode-select')?.classList.remove('hidden');
+      this.showTitleScreen();
     }
   }
 
@@ -100,6 +108,8 @@ export class GameApp {
           }
         } else if (type === 'VOTE_DRAFT_CRATE') {
           this.engine.voteForDraftCrate(playerId, crateId);
+        } else if (type === 'START_ROUND_FROM_PHONE') {
+          this.startRoundFromPhoneVIP();
         }
       };
     } catch (e) {
@@ -583,11 +593,139 @@ export class GameApp {
     `).join('');
   }
 
-  // --- Mode Selection & Virtual Room Online Support ---
+  // =========================================================
+  // TITLE SCREEN / FIRST PAGE CONTROLLER & SETTINGS
+  // =========================================================
 
-  public startLocalMode(): void {
+  private debounceTimer: any = null;
+
+  public initTitleScreen(): void {
+    const origin = window.location.origin;
+
+    // 1. Smart TV Zero-Remote Quickstart QR Badge
+    const quickstartQr = document.getElementById('quickstart-qr-img') as HTMLImageElement;
+    if (quickstartQr) {
+      const quickstartUrl = `${origin}/controller.html?player=p1`;
+      quickstartQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(quickstartUrl)}`;
+    }
+
+    // 2. Local TV Party QR Code & Direct Link
+    const localQr = document.getElementById('local-qr-img') as HTMLImageElement;
+    const localJoinUrl = document.getElementById('local-join-url');
+    const localUrl = `${origin}/controller.html`;
+    if (localQr) {
+      localQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(localUrl)}`;
+    }
+    if (localJoinUrl) {
+      localJoinUrl.textContent = localUrl;
+    }
+
+    // 3. Online Room Name Debounced Duplicate Check
+    const roomInput = document.getElementById('input-title-room-name') as HTMLInputElement;
+    if (roomInput) {
+      this.randomizeRoomName();
+      roomInput.addEventListener('input', () => {
+        const val = roomInput.value.trim().toUpperCase();
+        clearTimeout(this.debounceTimer);
+        this.debounceTimer = setTimeout(() => {
+          this.checkTitleRoomName(val);
+        }, 300);
+      });
+    }
+
+    // 4. Load Saved Audio & Display Settings
+    this.loadSettingsUI();
+  }
+
+  private loadSettingsUI(): void {
+    const masterSlider = document.getElementById('slider-vol-master') as HTMLInputElement;
+    const sfxSlider = document.getElementById('slider-vol-sfx') as HTMLInputElement;
+    const musicSlider = document.getElementById('slider-vol-music') as HTMLInputElement;
+    const langSelect = document.getElementById('select-game-language') as HTMLSelectElement;
+
+    if (masterSlider) masterSlider.value = String(Math.round(this.soundSystem.masterVolume * 100));
+    if (sfxSlider) sfxSlider.value = String(Math.round(this.soundSystem.sfxVolume * 100));
+    if (musicSlider) musicSlider.value = String(Math.round(this.soundSystem.musicVolume * 100));
+
+    const lblMaster = document.getElementById('lbl-vol-master');
+    const lblSfx = document.getElementById('lbl-vol-sfx');
+    const lblMusic = document.getElementById('lbl-vol-music');
+    if (lblMaster) lblMaster.textContent = `${Math.round(this.soundSystem.masterVolume * 100)}%`;
+    if (lblSfx) lblSfx.textContent = `${Math.round(this.soundSystem.sfxVolume * 100)}%`;
+    if (lblMusic) lblMusic.textContent = `${Math.round(this.soundSystem.musicVolume * 100)}%`;
+
+    const savedLang = localStorage.getItem('friendslop_lang') || 'en';
+    if (langSelect) langSelect.value = savedLang;
+  }
+
+  public showTitleScreen(): void {
+    document.getElementById('title-screen-container')?.classList.remove('hidden');
+    this.showTitleView('menu');
+  }
+
+  public hideTitleScreen(): void {
+    document.getElementById('title-screen-container')?.classList.add('hidden');
+  }
+
+  public showTitleView(viewName: string): void {
+    const views = ['menu', 'local', 'online-form', 'online-lobby', 'online-join', 'settings'];
+    views.forEach(v => {
+      document.getElementById(`title-view-${v}`)?.classList.add('hidden');
+    });
+    document.getElementById(`title-view-${viewName}`)?.classList.remove('hidden');
+
+    if (viewName === 'online-form') {
+      const roomInput = document.getElementById('input-title-room-name') as HTMLInputElement;
+      if (roomInput && roomInput.value) {
+        this.checkTitleRoomName(roomInput.value);
+      }
+    }
+  }
+
+  public async checkTitleRoomName(name: string): Promise<boolean> {
+    const statusElem = document.getElementById('room-name-status');
+    const clean = name.trim().toUpperCase();
+    if (!clean || clean.length < 2) {
+      if (statusElem) {
+        statusElem.textContent = 'Min 2 chars';
+        statusElem.className = 'text-[10px] font-mono text-amber-400 font-bold';
+      }
+      return false;
+    }
+
+    try {
+      const res = await this.networkManager.checkRoom(clean);
+      if (statusElem) {
+        if (res.available) {
+          statusElem.textContent = '✓ Available';
+          statusElem.className = 'text-[10px] font-mono text-emerald-400 font-bold';
+        } else {
+          statusElem.textContent = '⚠️ Room name already taken!';
+          statusElem.className = 'text-[10px] font-mono text-rose-400 font-bold';
+        }
+      }
+      return res.available;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  public randomizeRoomName(): void {
+    const letters = 'BCDFGHJKLMNPQRSTVWXYZ';
+    let code = '';
+    for (let i = 0; i < 4; i++) {
+      code += letters.charAt(Math.floor(Math.random() * letters.length));
+    }
+    const input = document.getElementById('input-title-room-name') as HTMLInputElement;
+    if (input) {
+      input.value = code;
+      this.checkTitleRoomName(code);
+    }
+  }
+
+  public startLocalGameFromTitle(): void {
     this.playMode = 'local';
-    document.getElementById('modal-mode-select')?.classList.add('hidden');
+    this.hideTitleScreen();
     const modeText = document.getElementById('hud-mode-text');
     if (modeText) modeText.textContent = 'Local TV';
     document.getElementById('hud-room-badge')?.classList.add('hidden');
@@ -595,19 +733,57 @@ export class GameApp {
     const origin = window.location.origin;
     this.updatePhoneModalLinks('LOCAL', `${origin}/controller.html`);
     this.soundSystem.play('bell');
+
+    if (this.isAudioEnabled) {
+      this.soundSystem.startSeaShantyMusic();
+    }
   }
 
-  public async createRemoteRoom(): Promise<void> {
-    const pwdInput = document.getElementById('input-host-password') as HTMLInputElement;
+  public copyLocalControllerUrl(): void {
+    const url = `${window.location.origin}/controller.html`;
+    navigator.clipboard?.writeText(url).then(() => {
+      this.soundSystem.play('pickup');
+      this.engine.addFeedMessage('📋 Copied local controller link to clipboard!', 'info');
+    });
+  }
+
+  public async createOnlineRoomFromTitle(): Promise<void> {
+    const nameInput = document.getElementById('input-title-room-name') as HTMLInputElement;
+    const pwdInput = document.getElementById('input-title-room-pwd') as HTMLInputElement;
+    const errElem = document.getElementById('title-create-error');
+
+    const roomName = nameInput?.value?.trim()?.toUpperCase();
     const password = pwdInput?.value?.trim() || undefined;
 
+    if (!roomName || roomName.length < 2) {
+      if (errElem) {
+        errElem.textContent = 'Please provide a room name of at least 2 characters.';
+        errElem.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (errElem) errElem.classList.add('hidden');
+
     try {
-      const res = await this.networkManager.createRoom(password);
+      const res = await this.networkManager.createRoom(roomName, password);
       this.playMode = 'remote_host';
       this.roomCode = res.roomCode;
       this.roomPassword = password;
 
-      document.getElementById('modal-mode-select')?.classList.add('hidden');
+      // Populate online lobby view
+      const lobbyCode = document.getElementById('title-lobby-code');
+      const lobbyLock = document.getElementById('title-lobby-lock');
+      const lobbyQr = document.getElementById('title-lobby-qr-img') as HTMLImageElement;
+      const lobbyUrl = document.getElementById('title-lobby-join-url');
+
+      if (lobbyCode) lobbyCode.textContent = res.roomCode;
+      if (lobbyLock) {
+        if (res.hasPassword) lobbyLock.classList.remove('hidden');
+        else lobbyLock.classList.add('hidden');
+      }
+      if (lobbyQr && res.qrUrl) lobbyQr.src = res.qrUrl;
+      if (lobbyUrl) lobbyUrl.textContent = res.joinUrl;
 
       // Update Top HUD Room Badge
       const roomBadge = document.getElementById('hud-room-badge');
@@ -623,41 +799,49 @@ export class GameApp {
       }
       if (modeText) modeText.textContent = `Host (${res.roomCode})`;
 
-      // Update Phone Connect Modal
       this.updatePhoneModalLinks(res.roomCode, res.controllerUrl, res.hasPassword);
-
       this.soundSystem.play('victory');
-      this.engine.addFeedMessage(`🌐 Virtual Room ${res.roomCode} created! Share invite link with crew.`, 'info');
-
-      // Auto-show phone connect modal with QR code
-      this.togglePhoneModal();
+      this.showTitleView('online-lobby');
     } catch (e: any) {
-      alert('Failed to create virtual room: ' + e.message);
-    }
-  }
-
-  public async joinRemoteRoom(): Promise<void> {
-    const codeInput = document.getElementById('input-join-code') as HTMLInputElement;
-    const pwdInput = document.getElementById('input-join-password') as HTMLInputElement;
-    const errElem = document.getElementById('text-join-error');
-
-    const code = codeInput?.value?.trim()?.toUpperCase();
-    const pwd = pwdInput?.value?.trim() || undefined;
-
-    if (!code || code.length < 3) {
       if (errElem) {
-        errElem.textContent = 'Please enter a 4-letter room code.';
+        errElem.textContent = e.message || 'Failed to create room';
         errElem.classList.remove('hidden');
       }
-      return;
     }
-
-    if (errElem) errElem.classList.add('hidden');
-    await this.joinRemoteRoomDirect(code, pwd);
   }
 
-  public async joinRemoteRoomDirect(roomCode: string, password?: string): Promise<void> {
-    const errElem = document.getElementById('text-join-error');
+  public copyOnlineInviteLink(): void {
+    if (!this.roomCode) return;
+    let url = `${window.location.origin}/?room=${this.roomCode}`;
+    if (this.roomPassword) {
+      url += `&pwd=${encodeURIComponent(this.roomPassword)}`;
+    }
+
+    navigator.clipboard?.writeText(url).then(() => {
+      const btn = document.getElementById('btn-copy-invite-text');
+      if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> Copied! 🎉';
+        setTimeout(() => {
+          btn.innerHTML = '<i class="fa-regular fa-copy"></i><span>Copy Link</span>';
+        }, 2000);
+      }
+      this.soundSystem.play('pickup');
+    }).catch(() => {
+      prompt('Copy this room invite link:', url);
+    });
+  }
+
+  public launchOnlineGameFromTitle(): void {
+    this.hideTitleScreen();
+    this.soundSystem.play('bell');
+    if (this.isAudioEnabled) {
+      this.soundSystem.startSeaShantyMusic();
+    }
+    this.engine.addFeedMessage(`⚓ Expedition launched in Virtual Room ${this.roomCode}!`, 'info');
+  }
+
+  public async joinRemoteRoomDirect(roomCode: string, password?: string): Promise<boolean> {
+    const errElem = document.getElementById('title-join-error');
     try {
       const res = await this.networkManager.joinRoom(roomCode, 'viewer', 'Remote Sailor', password);
       if (res.success) {
@@ -665,9 +849,8 @@ export class GameApp {
         this.roomCode = res.roomCode || roomCode;
         this.roomPassword = password;
 
-        document.getElementById('modal-mode-select')?.classList.add('hidden');
+        this.hideTitleScreen();
 
-        // Update Top HUD Room Badge
         const roomBadge = document.getElementById('hud-room-badge');
         const roomCodeElem = document.getElementById('hud-room-code');
         const roomLockElem = document.getElementById('hud-room-lock');
@@ -683,39 +866,129 @@ export class GameApp {
 
         this.soundSystem.play('bell');
         this.engine.addFeedMessage(`🌐 Joined Virtual Room ${this.roomCode}! Synchronizing stream...`, 'info');
+        return true;
       } else {
         if (errElem) {
           errElem.textContent = res.error || 'Failed to join room.';
           errElem.classList.remove('hidden');
         }
-        document.getElementById('modal-mode-select')?.classList.remove('hidden');
+        return false;
       }
     } catch (e: any) {
       if (errElem) {
         errElem.textContent = e.message || 'Connection error.';
         errElem.classList.remove('hidden');
       }
-      document.getElementById('modal-mode-select')?.classList.remove('hidden');
+      return false;
     }
   }
 
-  public copyRoomLink(): void {
-    if (!this.roomCode) return;
-    let url = `${window.location.origin}/?room=${this.roomCode}`;
-    if (this.roomPassword) {
-      url += `&pwd=${encodeURIComponent(this.roomPassword)}`;
+  public async joinOnlineRoomFromTitle(): Promise<void> {
+    const codeInput = document.getElementById('input-title-join-code') as HTMLInputElement;
+    const pwdInput = document.getElementById('input-title-join-pwd') as HTMLInputElement;
+    const errElem = document.getElementById('title-join-error');
+
+    const code = codeInput?.value?.trim()?.toUpperCase();
+    const pwd = pwdInput?.value?.trim() || undefined;
+
+    if (!code || code.length < 2) {
+      if (errElem) {
+        errElem.textContent = 'Please enter a valid room name.';
+        errElem.classList.remove('hidden');
+      }
+      return;
     }
 
-    navigator.clipboard?.writeText(url).then(() => {
-      const btn = document.getElementById('btn-copy-link-text');
-      if (btn) {
-        btn.textContent = 'Copied! 🎉';
-        setTimeout(() => { btn.textContent = 'Copy Link'; }, 2000);
+    if (errElem) errElem.classList.add('hidden');
+    await this.joinRemoteRoomDirect(code, pwd);
+  }
+
+  public startRoundFromPhoneVIP(): void {
+    if (!document.getElementById('title-screen-container')?.classList.contains('hidden')) {
+      this.soundSystem.play('bell');
+      this.hideTitleScreen();
+      if (this.isAudioEnabled) {
+        this.soundSystem.startSeaShantyMusic();
       }
-      this.soundSystem.play('pickup');
-    }).catch(() => {
-      prompt('Copy this room invite link:', url);
-    });
+      this.engine.addFeedMessage('⚓ Player 1 (Lobby Leader) cast off the ship from phone!', 'info');
+    }
+  }
+
+  private updateTitleLobbyCrew(): void {
+    const onlineList = document.getElementById('title-lobby-crew-list');
+    const localList = document.getElementById('local-crew-roster');
+    const html = `
+      <div class="p-2 rounded-xl bg-slate-950 border border-teal-500/40 flex items-center justify-between">
+        <span class="font-bold text-teal-300">👑 Host TV Display</span>
+        <span class="text-[10px] text-emerald-400 font-mono">HOST</span>
+      </div>
+      <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+        <span class="font-bold text-slate-300">🔵 Sailor Joined</span>
+        <span class="text-[10px] text-teal-400 font-mono">CREW</span>
+      </div>
+    `;
+    if (onlineList) onlineList.innerHTML = html;
+    if (localList) localList.innerHTML = html;
+  }
+
+  // --- Settings Handlers ---
+
+  public onVolumeChange(): void {
+    const masterSlider = document.getElementById('slider-vol-master') as HTMLInputElement;
+    const sfxSlider = document.getElementById('slider-vol-sfx') as HTMLInputElement;
+    const musicSlider = document.getElementById('slider-vol-music') as HTMLInputElement;
+
+    const master = masterSlider ? Number(masterSlider.value) / 100 : 0.8;
+    const sfx = sfxSlider ? Number(sfxSlider.value) / 100 : 1.0;
+    const music = musicSlider ? Number(musicSlider.value) / 100 : 0.6;
+
+    const lblMaster = document.getElementById('lbl-vol-master');
+    const lblSfx = document.getElementById('lbl-vol-sfx');
+    const lblMusic = document.getElementById('lbl-vol-music');
+    if (lblMaster) lblMaster.textContent = `${Math.round(master * 100)}%`;
+    if (lblSfx) lblSfx.textContent = `${Math.round(sfx * 100)}%`;
+    if (lblMusic) lblMusic.textContent = `${Math.round(music * 100)}%`;
+
+    this.soundSystem.setVolumes(master, sfx, music);
+  }
+
+  public onLanguageChange(lang: string): void {
+    localStorage.setItem('friendslop_lang', lang);
+    this.soundSystem.play('pickup');
+    const subtitle = document.getElementById('hud-level-subtitle');
+    if (lang === 'it' && subtitle) {
+      subtitle.textContent = 'Secche di Acqua Dolce — Spedizione Roguelite di 15 Minuti';
+    } else if (lang === 'de' && subtitle) {
+      subtitle.textContent = 'Süßwasser-Untiefen — 15-Minuten Roguelite Expedition';
+    } else if (lang === 'es' && subtitle) {
+      subtitle.textContent = 'Bajos de Agua Dulce — Expedición Roguelite de 15 Minutos';
+    } else if (lang === 'fr' && subtitle) {
+      subtitle.textContent = 'Hauts-fonds Doux — Expédition Roguelite de 15 Minutes';
+    } else if (lang === 'ja' && subtitle) {
+      subtitle.textContent = '淡水の浅瀬 — 15分間のローグライト遠征';
+    } else if (subtitle) {
+      subtitle.textContent = 'Sweetwater Shallows — 15-Minute Roguelite Run';
+    }
+  }
+
+  public toggleFullscreen(): void {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  public toggleScanlines(): void {
+    document.body.classList.toggle('scanline');
+    const isScanline = document.body.classList.contains('scanline');
+    const lbl = document.getElementById('lbl-scanlines');
+    if (lbl) lbl.textContent = isScanline ? 'CRT: On' : 'CRT: Off';
+    this.soundSystem.play('pickup');
+  }
+
+  public copyRoomLink(): void {
+    this.copyOnlineInviteLink();
   }
 
   private updatePhoneModalLinks(roomCode: string, controllerUrl: string, hasPassword: boolean = false): void {
@@ -744,10 +1017,6 @@ export class GameApp {
     if (p2) p2.href = `/controller.html?room=${roomCode}&player=p2${pwdParam}`;
     if (p3) p3.href = `/controller.html?room=${roomCode}&player=p3${pwdParam}`;
     if (p4) p4.href = `/controller.html?room=${roomCode}&player=p4${pwdParam}`;
-  }
-
-  public toggleModeSelectModal(): void {
-    document.getElementById('modal-mode-select')?.classList.toggle('hidden');
   }
 }
 

@@ -49,8 +49,14 @@
                 </button>
             </div>
 
+            <!-- Return to Title Menu Button -->
+            <button onclick="window.gameApp.showTitleScreen()" class="bg-slate-800 hover:bg-slate-700 text-amber-300 px-3 py-1.5 rounded-xl border border-amber-500/40 font-bold transition flex items-center space-x-1.5 shadow-md">
+                <i class="fa-solid fa-house"></i>
+                <span class="hidden md:inline text-xs">Title Menu</span>
+            </button>
+
             <!-- Play Mode Selector Button -->
-            <button onclick="window.gameApp.toggleModeSelectModal()" class="bg-slate-800 hover:bg-slate-700 text-teal-300 px-3 py-1.5 rounded-xl border border-teal-500/40 font-bold transition flex items-center space-x-1.5 shadow-md">
+            <button onclick="window.gameApp.showTitleScreen()" class="bg-slate-800 hover:bg-slate-700 text-teal-300 px-3 py-1.5 rounded-xl border border-teal-500/40 font-bold transition flex items-center space-x-1.5 shadow-md">
                 <i class="fa-solid fa-users"></i>
                 <span id="hud-mode-text" class="hidden md:inline text-xs">Play Mode</span>
             </button>
@@ -391,92 +397,313 @@
         </div>
     </div>
 
-    <!-- MODAL 0: PLAY TOGETHER MODE SELECTOR (LOCAL VS REMOTE) -->
-    <div id="modal-mode-select" class="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-50 flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-700/60 rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl space-y-6 text-center">
-            
-            <div class="space-y-1.5">
-                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-2xl mx-auto shadow-lg shadow-amber-500/20">
-                    <i class="fa-solid fa-fish-fins"></i>
+    <!-- ========================================================= -->
+    <!-- TITLE SCREEN / FIRST PAGE WITH PIXEL ARTWORK BACKDROP     -->
+    <!-- ========================================================= -->
+    <div id="title-screen-container" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 overflow-hidden select-none">
+        
+        <!-- Fullscreen Pixel Art Artwork Backdrop -->
+        <img src="/assets/title_screen.jpg" alt="Friendslop Fishing Co." class="absolute inset-0 w-full h-full object-cover filter brightness-90 contrast-105 pointer-events-none" style="image-rendering: pixelated;">
+        
+        <!-- Subtle Atmospheric Vignette -->
+        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/40 pointer-events-none"></div>
+
+        <!-- Smart TV Zero-Remote Quickstart Badge in Top-Right Corner -->
+        <div id="quickstart-tv-badge" class="absolute top-4 right-4 z-20 bg-slate-900/85 backdrop-blur-md border border-teal-500/40 rounded-2xl p-2.5 shadow-2xl flex items-center space-x-3 max-w-xs group hover:border-teal-400 transition">
+            <img id="quickstart-qr-img" src="" alt="Quickstart QR" class="w-16 h-16 rounded-xl bg-white p-1 shadow-md shrink-0">
+            <div class="text-left space-y-0.5">
+                <div class="flex items-center space-x-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span class="text-[11px] font-black text-white tracking-wide uppercase">TV Quickstart</span>
                 </div>
-                <h2 class="text-2xl font-black text-white tracking-wide">FRIENDSLOP FISHING CO.</h2>
-                <p class="text-xs md:text-sm text-slate-400">Choose how your crew wants to cast off today:</p>
+                <p class="text-[10px] text-slate-300 leading-tight">Scan with phone to control lobby & cast off (no TV remote needed!)</p>
             </div>
+        </div>
 
-            <!-- Two Playstyle Cards Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                
-                <!-- Card 1: Play Together (Local) -->
-                <div class="bg-slate-950/80 border border-teal-500/30 rounded-2xl p-5 flex flex-col justify-between space-y-4 hover:border-teal-500/60 transition group">
-                    <div class="space-y-2">
-                        <div class="w-10 h-10 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center text-xl">
-                            <i class="fa-solid fa-tv"></i>
-                        </div>
-                        <h3 class="text-lg font-black text-white group-hover:text-teal-300 transition">Play Together (Local)</h3>
-                        <p class="text-xs text-slate-400 leading-relaxed">
-                            Couch party / TV screen mode. One big screen displays the trawler while crewmates connect via phones on local Wi-Fi.
-                        </p>
+        <!-- Center Hovering Semi-Transparent Gray Card -->
+        <div id="title-menu-card" class="relative z-10 backdrop-blur-md bg-slate-900/85 border border-slate-700/60 rounded-3xl p-6 sm:p-8 shadow-2xl max-w-md w-full mx-4 space-y-5 text-center transition-all duration-300">
+            
+            <!-- VIEW 1: MAIN MENU (Play Local, Play Online, Settings) -->
+            <div id="title-view-menu" class="space-y-4">
+                <div class="space-y-1">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-2xl mx-auto shadow-lg shadow-amber-500/20">
+                        <i class="fa-solid fa-fish-fins"></i>
                     </div>
+                    <h2 class="text-2xl font-black text-white tracking-wide">FRIENDSLOP FISHING CO.</h2>
+                    <p class="text-xs text-slate-400">Co-op Trawler Slapstick & Roguelite Expeditions</p>
+                </div>
 
-                    <button onclick="window.gameApp.startLocalMode()" class="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-bold py-2.5 rounded-xl transition shadow-lg shadow-teal-900/30 flex items-center justify-center space-x-2 text-xs">
-                        <i class="fa-solid fa-play"></i>
-                        <span>LAUNCH LOCAL TV MODE</span>
+                <div class="space-y-2.5 pt-2">
+                    <button onclick="window.gameApp.showTitleView('local')" class="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-black py-3.5 rounded-2xl transition shadow-xl shadow-teal-950/40 flex items-center justify-center space-x-2 text-sm active:scale-95">
+                        <i class="fa-solid fa-tv text-amber-300"></i>
+                        <span>PLAY LOCAL</span>
+                    </button>
+
+                    <button onclick="window.gameApp.showTitleView('online-form')" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black py-3.5 rounded-2xl transition shadow-xl shadow-purple-950/40 flex items-center justify-center space-x-2 text-sm active:scale-95">
+                        <i class="fa-solid fa-globe text-teal-300"></i>
+                        <span>PLAY ONLINE</span>
+                    </button>
+
+                    <button onclick="window.gameApp.showTitleView('settings')" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold py-3 rounded-2xl transition shadow-md flex items-center justify-center space-x-2 text-sm active:scale-95">
+                        <i class="fa-solid fa-gear text-slate-400"></i>
+                        <span>SETTINGS</span>
                     </button>
                 </div>
+            </div>
 
-                <!-- Card 2: Play Together (Remote) -->
-                <div class="bg-slate-950/80 border border-purple-500/30 rounded-2xl p-5 flex flex-col justify-between space-y-4 hover:border-purple-500/60 transition group">
-                    <div class="space-y-2">
-                        <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-xl">
-                            <i class="fa-solid fa-globe"></i>
+            <!-- VIEW 2: PLAY LOCAL LOBBY -->
+            <div id="title-view-local" class="space-y-4 hidden text-left">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div>
+                        <h3 class="text-lg font-black text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-tv text-teal-400"></i>
+                            <span>Play Together (Local)</span>
+                        </h3>
+                        <p class="text-[11px] text-slate-400">Scan QR with phone on your Wi-Fi to join as controller</p>
+                    </div>
+                </div>
+
+                <!-- QR Code & Link Display -->
+                <div class="flex items-center space-x-4 bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
+                    <img id="local-qr-img" src="" alt="QR" class="w-24 h-24 rounded-xl bg-white p-1 shrink-0 shadow">
+                    <div class="space-y-1.5 text-xs flex-1">
+                        <span class="text-[10px] text-slate-400 uppercase font-bold">Or Open on Mobile:</span>
+                        <div id="local-join-url" class="font-mono text-[11px] text-teal-300 break-all select-all bg-slate-900 px-2 py-1 rounded-lg border border-slate-800">http://localhost:5173/controller.html</div>
+                        <button onclick="window.gameApp.copyLocalControllerUrl()" class="text-[10px] text-amber-300 hover:underline flex items-center space-x-1">
+                            <i class="fa-regular fa-copy"></i>
+                            <span>Copy Link</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Connected Crew Roster -->
+                <div class="space-y-1.5">
+                    <span class="text-[10px] uppercase font-bold text-slate-400">Crew Roster (Local)</span>
+                    <div id="local-crew-roster" class="space-y-1 text-xs">
+                        <div class="p-2 rounded-xl bg-slate-950 border border-teal-500/40 flex items-center justify-between">
+                            <span class="font-bold text-teal-300">🔵 Player 1 (Host TV / Keyboard)</span>
+                            <span class="text-[10px] text-emerald-400 font-mono">READY</span>
                         </div>
-                        <h3 class="text-lg font-black text-white group-hover:text-purple-300 transition">Play Together (Remote)</h3>
-                        <p class="text-xs text-slate-400 leading-relaxed">
-                            Online Virtual Room. Friends on Discord or remote locations join using a 4-letter room code and optional secret PIN.
-                        </p>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="space-y-2 pt-1">
+                    <button onclick="window.gameApp.startLocalGameFromTitle()" class="w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 text-slate-950 font-black py-3 rounded-2xl transition shadow-lg shadow-teal-500/30 flex items-center justify-center space-x-2 text-sm active:scale-95">
+                        <i class="fa-solid fa-anchor"></i>
+                        <span>GET FISHING / CAST OFF</span>
+                    </button>
+                    <button onclick="window.gameApp.showTitleView('menu')" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 rounded-xl transition text-xs flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span>BACK TO MENU</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- VIEW 3: PLAY ONLINE SETUP FORM (Room Name Duplicate Check & Password) -->
+            <div id="title-view-online-form" class="space-y-4 hidden text-left">
+                <div class="border-b border-slate-800 pb-2">
+                    <h3 class="text-lg font-black text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-globe text-purple-400"></i>
+                        <span>Host Virtual Room</span>
+                    </h3>
+                    <p class="text-[11px] text-slate-400">Choose room name and optional secret password</p>
+                </div>
+
+                <div class="space-y-3 text-xs">
+                    <!-- Room Name Input with Live Duplicate Check -->
+                    <div class="space-y-1">
+                        <div class="flex items-center justify-between">
+                            <label class="text-[10px] uppercase font-bold text-slate-400">Room Name</label>
+                            <span id="room-name-status" class="text-[10px] font-mono text-emerald-400 font-bold">✓ Available</span>
+                        </div>
+                        <div class="flex items-center space-x-1.5">
+                            <input id="input-title-room-name" type="text" maxlength="12" placeholder="ROOM NAME (e.g. SLOP)" class="flex-1 uppercase font-mono font-black bg-slate-950 border border-slate-700 rounded-xl py-2 px-3 text-sm text-teal-300 placeholder-slate-600 focus:outline-none focus:border-purple-400">
+                            <button onclick="window.gameApp.randomizeRoomName()" title="Generate Random Code" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 p-2.5 rounded-xl transition">
+                                <i class="fa-solid fa-dice text-base"></i>
+                            </button>
+                        </div>
                     </div>
 
-                    <!-- Remote Action Tabs: Host or Join -->
-                    <div class="space-y-2.5 pt-1">
-                        <!-- Host Room Form -->
-                        <div class="space-y-1.5">
-                            <div class="relative">
-                                <i class="fa-solid fa-lock absolute left-3 top-2.5 text-slate-500 text-xs"></i>
-                                <input id="input-host-password" type="text" placeholder="Room Password / PIN (Optional)" class="w-full bg-slate-900 border border-slate-700 rounded-xl py-1.5 pl-8 pr-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-400">
-                            </div>
-                            <button onclick="window.gameApp.createRemoteRoom()" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-2 rounded-xl transition shadow-lg shadow-purple-900/30 flex items-center justify-center space-x-1.5 text-xs">
-                                <i class="fa-solid fa-plus-circle"></i>
-                                <span>HOST VIRTUAL ROOM</span>
-                            </button>
+                    <!-- Password Input -->
+                    <div class="space-y-1">
+                        <label class="text-[10px] uppercase font-bold text-slate-400">Password / PIN (Optional)</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-lock absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+                            <input id="input-title-room-pwd" type="text" placeholder="Optional room password" class="w-full bg-slate-950 border border-slate-700 rounded-xl py-2 pl-8 pr-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-purple-400">
                         </div>
+                    </div>
 
-                        <!-- Divider -->
-                        <div class="flex items-center space-x-2 text-[10px] text-slate-500">
-                            <div class="flex-1 border-t border-slate-800"></div>
-                            <span>OR JOIN ROOM</span>
-                            <div class="flex-1 border-t border-slate-800"></div>
-                        </div>
+                    <div id="title-create-error" class="text-xs text-rose-400 font-bold hidden text-center"></div>
+                </div>
 
-                        <!-- Join Existing Room Form -->
-                        <div class="space-y-1.5">
-                            <div class="grid grid-cols-2 gap-1.5">
-                                <input id="input-join-code" type="text" maxlength="4" placeholder="CODE (FISH)" class="uppercase font-mono font-black text-center bg-slate-900 border border-slate-700 rounded-xl py-1.5 px-2 text-xs text-amber-300 placeholder-slate-500 focus:outline-none focus:border-amber-400">
-                                <input id="input-join-password" type="password" placeholder="PIN / Password" class="bg-slate-900 border border-slate-700 rounded-xl py-1.5 px-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-400">
-                            </div>
-                            <div id="text-join-error" class="text-[11px] text-rose-400 font-bold hidden text-center"></div>
-                            <button onclick="window.gameApp.joinRemoteRoom()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold py-2 rounded-xl transition flex items-center justify-center space-x-1.5 text-xs">
-                                <i class="fa-solid fa-right-to-bracket text-teal-400"></i>
-                                <span>JOIN EXISTING ROOM</span>
-                            </button>
-                        </div>
+                <!-- Create Button -->
+                <div class="space-y-2 pt-1">
+                    <button onclick="window.gameApp.createOnlineRoomFromTitle()" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 text-white font-black py-3 rounded-2xl transition shadow-lg shadow-purple-950/40 flex items-center justify-center space-x-2 text-sm active:scale-95">
+                        <i class="fa-solid fa-fish"></i>
+                        <span>GET FISHING / CREATE LOBBY</span>
+                    </button>
+
+                    <div class="flex items-center justify-between text-xs pt-1">
+                        <button onclick="window.gameApp.showTitleView('online-join')" class="text-teal-400 hover:underline">
+                            Join Friend's Room Instead →
+                        </button>
+                        <button onclick="window.gameApp.showTitleView('menu')" class="text-slate-400 hover:text-white">
+                            Back
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <div class="text-[11px] text-slate-500 flex items-center justify-center space-x-2">
-                <i class="fa-solid fa-shield-halved text-teal-400"></i>
-                <span>Password protection keeps random guessers out of your virtual session.</span>
+            <!-- VIEW 4: PLAY ONLINE LOBBY (Active Room QR & Link) -->
+            <div id="title-view-online-lobby" class="space-y-4 hidden text-left">
+                <div class="border-b border-slate-800 pb-2 flex items-center justify-between">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h3 class="text-lg font-black text-white">ROOM: <span id="title-lobby-code" class="font-mono text-teal-300">FISH</span></h3>
+                            <span id="title-lobby-lock" class="text-xs text-amber-400 hidden"><i class="fa-solid fa-lock"></i></span>
+                        </div>
+                        <p class="text-[11px] text-slate-400">Invite crewmates using link or QR code below</p>
+                    </div>
+                </div>
+
+                <!-- QR & Link -->
+                <div class="flex items-center space-x-4 bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
+                    <img id="title-lobby-qr-img" src="" alt="QR" class="w-24 h-24 rounded-xl bg-white p-1 shrink-0 shadow">
+                    <div class="space-y-1.5 text-xs flex-1">
+                        <span class="text-[10px] text-slate-400 uppercase font-bold">Invite Link:</span>
+                        <div id="title-lobby-join-url" class="font-mono text-[11px] text-teal-300 break-all select-all bg-slate-900 px-2 py-1 rounded-lg border border-slate-800">https://...</div>
+                        <button onclick="window.gameApp.copyOnlineInviteLink()" id="btn-copy-invite-text" class="text-[10px] text-amber-300 hover:underline flex items-center space-x-1">
+                            <i class="fa-regular fa-copy"></i>
+                            <span>Copy Link</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Online Crew Roster -->
+                <div class="space-y-1.5">
+                    <span class="text-[10px] uppercase font-bold text-slate-400">Crew in Virtual Lobby</span>
+                    <div id="title-lobby-crew-list" class="space-y-1 text-xs">
+                        <div class="p-2 rounded-xl bg-slate-950 border border-teal-500/40 flex items-center justify-between">
+                            <span class="font-bold text-teal-300">👑 Host TV Display</span>
+                            <span class="text-[10px] text-emerald-400 font-mono">HOST</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Launch Button -->
+                <div class="space-y-2 pt-1">
+                    <button onclick="window.gameApp.launchOnlineGameFromTitle()" class="w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 text-slate-950 font-black py-3 rounded-2xl transition shadow-lg shadow-teal-500/30 flex items-center justify-center space-x-2 text-sm active:scale-95">
+                        <i class="fa-solid fa-anchor"></i>
+                        <span>CAST OFF / START EXPEDITION</span>
+                    </button>
+                    <button onclick="window.gameApp.showTitleView('menu')" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 rounded-xl transition text-xs flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span>LEAVE ROOM & RETURN TO MENU</span>
+                    </button>
+                </div>
             </div>
+
+            <!-- VIEW 5: PLAY ONLINE JOIN -->
+            <div id="title-view-online-join" class="space-y-4 hidden text-left">
+                <div class="border-b border-slate-800 pb-2">
+                    <h3 class="text-lg font-black text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-right-to-bracket text-teal-400"></i>
+                        <span>Join Virtual Room</span>
+                    </h3>
+                    <p class="text-[11px] text-slate-400">Enter room name and password</p>
+                </div>
+
+                <div class="space-y-2 text-xs">
+                    <input id="input-title-join-code" type="text" placeholder="ROOM NAME (e.g. FISH)" class="w-full uppercase font-mono font-black text-center bg-slate-950 border border-slate-700 rounded-xl py-2 px-3 text-sm text-teal-300 placeholder-slate-600 focus:outline-none focus:border-purple-400">
+                    <input id="input-title-join-pwd" type="password" placeholder="Room Password (if locked)" class="w-full bg-slate-950 border border-slate-700 rounded-xl py-2 px-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-purple-400">
+                    <div id="title-join-error" class="text-xs text-rose-400 font-bold hidden text-center"></div>
+                </div>
+
+                <div class="space-y-2 pt-1">
+                    <button onclick="window.gameApp.joinOnlineRoomFromTitle()" class="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 text-white font-black py-3 rounded-2xl transition shadow-lg flex items-center justify-center space-x-2 text-sm active:scale-95">
+                        <i class="fa-solid fa-right-to-bracket"></i>
+                        <span>JOIN ROOM</span>
+                    </button>
+                    <button onclick="window.gameApp.showTitleView('online-form')" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 rounded-xl transition text-xs flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span>BACK</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- VIEW 6: SETTINGS (Volume, Language, Fullscreen) -->
+            <div id="title-view-settings" class="space-y-4 hidden text-left">
+                <div class="border-b border-slate-800 pb-2">
+                    <h3 class="text-lg font-black text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-gear text-teal-400"></i>
+                        <span>Settings</span>
+                    </h3>
+                    <p class="text-[11px] text-slate-400">Audio volume, language, and display</p>
+                </div>
+
+                <div class="space-y-3.5 text-xs">
+                    <!-- Master Volume -->
+                    <div class="space-y-1">
+                        <div class="flex items-center justify-between text-slate-300">
+                            <span class="font-bold">Master Volume</span>
+                            <span id="lbl-vol-master" class="font-mono text-teal-300">80%</span>
+                        </div>
+                        <input id="slider-vol-master" type="range" min="0" max="100" value="80" oninput="window.gameApp.onVolumeChange()" class="w-full accent-teal-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                    </div>
+
+                    <!-- SFX Volume -->
+                    <div class="space-y-1">
+                        <div class="flex items-center justify-between text-slate-300">
+                            <span class="font-bold">SFX Volume</span>
+                            <span id="lbl-vol-sfx" class="font-mono text-teal-300">100%</span>
+                        </div>
+                        <input id="slider-vol-sfx" type="range" min="0" max="100" value="100" oninput="window.gameApp.onVolumeChange()" class="w-full accent-teal-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                    </div>
+
+                    <!-- Music Volume -->
+                    <div class="space-y-1">
+                        <div class="flex items-center justify-between text-slate-300">
+                            <span class="font-bold">Sea Shanty Music</span>
+                            <span id="lbl-vol-music" class="font-mono text-teal-300">60%</span>
+                        </div>
+                        <input id="slider-vol-music" type="range" min="0" max="100" value="60" oninput="window.gameApp.onVolumeChange()" class="w-full accent-teal-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                    </div>
+
+                    <!-- Language Selector -->
+                    <div class="space-y-1">
+                        <label class="font-bold text-slate-300 block">Language</label>
+                        <select id="select-game-language" onchange="window.gameApp.onLanguageChange(this.value)" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl py-2 px-3 focus:outline-none focus:border-teal-400">
+                            <option value="en">English (English)</option>
+                            <option value="it">Italiano (Italian)</option>
+                            <option value="de">Deutsch (German)</option>
+                            <option value="es">Español (Spanish)</option>
+                            <option value="fr">Français (French)</option>
+                            <option value="ja">日本語 (Japanese)</option>
+                        </select>
+                    </div>
+
+                    <!-- Display Toggles -->
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button id="btn-title-fullscreen" onclick="window.gameApp.toggleFullscreen()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 py-2 rounded-xl font-bold text-center transition flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-expand text-teal-400"></i>
+                            <span>Fullscreen</span>
+                        </button>
+                        <button id="btn-title-scanlines" onclick="window.gameApp.toggleScanlines()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 py-2 rounded-xl font-bold text-center transition flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-tv text-amber-300"></i>
+                            <span id="lbl-scanlines">CRT: Off</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="pt-2">
+                    <button onclick="window.gameApp.showTitleView('menu')" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl transition text-xs flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-check text-teal-400"></i>
+                        <span>SAVE & BACK TO MENU</span>
+                    </button>
+                </div>
+            </div>
+
         </div>
     </div>
 

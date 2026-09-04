@@ -38,7 +38,9 @@ console.log('✅ TEST GROUP 1 PASSED!\n');
 console.log('🚪 TEST GROUP 2: Public Virtual Rooms (No Password)');
 
 const host1Socket = 'socket_host_1';
-const room1 = roomManager.createRoom(host1Socket);
+const createRes1 = roomManager.createRoom(host1Socket);
+assert(createRes1.success === true, 'Room created successfully');
+const room1 = createRes1.room!;
 
 assert(room1.hasPassword === false, 'Room created without password has hasPassword === false');
 assert(room1.password === undefined, 'Room created without password has undefined password field');
@@ -60,7 +62,9 @@ console.log('🔒 TEST GROUP 3: Password-Protected Virtual Rooms & Guess Protect
 
 const host2Socket = 'socket_host_2';
 const secretPin = 'slop1234';
-const room2 = roomManager.createRoom(host2Socket, secretPin);
+const createRes2 = roomManager.createRoom(host2Socket, undefined, secretPin);
+assert(createRes2.success === true, 'Protected room created successfully');
+const room2 = createRes2.room!;
 
 assert(room2.hasPassword === true, 'Protected room has hasPassword === true');
 assert(room2.password === secretPin, 'Protected room stores clean password');
@@ -131,6 +135,41 @@ assert(roomManager.getRoom(room2.roomCode) === undefined, 'Virtual room is immed
 
 console.log('✅ TEST GROUP 5 PASSED!\n');
 
+// -------------------------------------------------------------
+// TEST GROUP 6: Custom Room Names & Duplicate Detection
+// -------------------------------------------------------------
+console.log('🏷️ TEST GROUP 6: Custom Room Names & Duplicate Detection');
+
+const host3Socket = 'socket_host_3';
+const customName = 'SLOP';
+
+// Initially room does not exist
+assert(roomManager.hasRoom(customName) === false, 'Room "SLOP" does not exist initially');
+
+// Host 3 creates custom named room
+const customRes = roomManager.createRoom(host3Socket, customName, 'mypass');
+assert(customRes.success === true, 'Custom named room created successfully');
+assert(customRes.room?.roomCode === 'SLOP', 'Created room code is SLOP');
+assert(roomManager.hasRoom('SLOP') === true, 'hasRoom("SLOP") returns true');
+assert(roomManager.hasRoom('slop') === true, 'hasRoom("slop") is case-insensitive');
+
+// Host 4 attempts to create duplicate room with same name
+const host4Socket = 'socket_host_4';
+const duplicateRes = roomManager.createRoom(host4Socket, 'slop');
+assert(duplicateRes.success === false, 'Duplicate room creation is rejected');
+assert(duplicateRes.error?.includes('already active') === true, 'Error reports room name is already active');
+
+// When Host 3 leaves, room is released
+roomManager.handleSocketDisconnect(host3Socket);
+assert(roomManager.hasRoom('SLOP') === false, 'Room "SLOP" is freed after host disconnects');
+
+// Now new host can claim "SLOP"!
+const claimRes = roomManager.createRoom(host4Socket, 'SLOP');
+assert(claimRes.success === true, 'Released room name can be claimed by new host');
+assert(claimRes.room?.roomCode === 'SLOP', 'New room code is SLOP');
+
+console.log('✅ TEST GROUP 6 PASSED!\n');
+
 console.log('🎉 =============================================================');
-console.log('🎉 ALL VIRTUAL ROOM & SECURITY TESTS PASSED PERFECTLY!');
+console.log('🎉 ALL VIRTUAL ROOM, CUSTOM NAMES & SECURITY TESTS PASSED!');
 console.log('🎉 =============================================================\n');

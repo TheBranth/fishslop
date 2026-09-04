@@ -56,6 +56,10 @@ export class PhoneControllerApp {
     this.networkManager.onMinigameTrigger = (data: { stationType: string }) => {
       this.openStationMinigame(data.stationType);
     };
+
+    this.networkManager.onLobbyGameStarted = () => {
+      document.getElementById('ctrl-lobby-overlay')?.classList.add('hidden');
+    };
   }
 
   private parseURLParams(): void {
@@ -276,6 +280,60 @@ export class PhoneControllerApp {
   }
 
   private handleHostState(state: any): void {
+    // Lobby Phase Overlay Check
+    const lobbyOverlay = document.getElementById('ctrl-lobby-overlay');
+    if (state.gameState === 'lobby' || state.inTitleLobby) {
+      if (lobbyOverlay) {
+        lobbyOverlay.classList.remove('hidden');
+        const roleBadge = document.getElementById('ctrl-lobby-role-badge');
+        const btnCastOff = document.getElementById('btn-ctrl-cast-off');
+        const waitingText = document.getElementById('ctrl-lobby-waiting-text');
+        const roomNameElem = document.getElementById('ctrl-lobby-room-name');
+        const subtitleElem = document.getElementById('ctrl-lobby-subtitle');
+
+        if (roomNameElem) roomNameElem.textContent = this.roomCode || 'LOCAL';
+
+        if (this.playerIndex === 0) {
+          if (roleBadge) {
+            roleBadge.textContent = '👑 LOBBY LEADER (PLAYER 1)';
+            roleBadge.className = 'inline-block px-3.5 py-1 rounded-full text-xs font-black font-mono uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40';
+          }
+          if (btnCastOff) btnCastOff.classList.remove('hidden');
+          if (waitingText) waitingText.classList.add('hidden');
+          if (subtitleElem) subtitleElem.textContent = 'You are the leader! Tap Cast Off below when everyone is ready to start the game on the TV.';
+        } else {
+          if (roleBadge) {
+            roleBadge.textContent = `⚓ CREWMATE (PLAYER ${this.playerIndex + 1})`;
+            roleBadge.className = 'inline-block px-3.5 py-1 rounded-full text-xs font-black font-mono uppercase bg-teal-500/20 text-teal-300 border border-teal-500/40';
+          }
+          if (btnCastOff) btnCastOff.classList.add('hidden');
+          if (waitingText) waitingText.classList.remove('hidden');
+          if (subtitleElem) subtitleElem.textContent = 'Waiting for the lobby leader (Player 1) to tap Cast Off and start the run...';
+        }
+
+        // Render roster if state has players
+        const rosterElem = document.getElementById('ctrl-lobby-crew-list');
+        if (rosterElem && state.players) {
+          rosterElem.innerHTML = state.players.map((p: any, idx: number) => {
+            const isMe = idx === this.playerIndex;
+            const isLeader = idx === 0;
+            return `
+              <div class="p-2 rounded-xl bg-slate-950 border ${isMe ? 'border-teal-500/50' : 'border-slate-800'} flex items-center justify-between">
+                <span class="font-bold ${isMe ? 'text-teal-300' : 'text-slate-300'}">
+                  ${isLeader ? '👑' : '⚓'} ${p.name || `Player ${idx + 1}`} ${isMe ? '(You)' : ''}
+                </span>
+                <span class="text-[10px] ${isLeader ? 'text-amber-400' : 'text-emerald-400'} font-mono font-bold">
+                  ${isLeader ? 'LEADER' : 'READY'}
+                </span>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+    } else {
+      if (lobbyOverlay) lobbyOverlay.classList.add('hidden');
+    }
+
     // Update boat balance tilt gauge
     const tiltBar = document.getElementById('ctrl-tilt-bar');
     const tiltLabel = document.getElementById('ctrl-tilt-label');
@@ -466,6 +524,16 @@ export class PhoneControllerApp {
     this.triggerHaptic(25);
     this.soundSystem.play('pickup');
     this.networkManager.voteDraftCrate(crateId);
+  }
+
+  public castOffFromPhone(): void {
+    this.soundSystem.play('bell');
+    this.triggerHaptic([30, 40, 30]);
+    this.networkManager.startRoundFromController();
+    if (this.channel) {
+      this.channel.postMessage({ type: 'START_ROUND_FROM_PHONE' });
+    }
+    document.getElementById('ctrl-lobby-overlay')?.classList.add('hidden');
   }
 
   private triggerHaptic(pattern: number | number[]): void {

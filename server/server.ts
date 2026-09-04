@@ -64,6 +64,14 @@ app.get('/api/qr', async (req, res) => {
   }
 });
 
+// API: Check Room Name Availability (Duplicate Prevention)
+app.get('/api/check-room', (req, res) => {
+  const name = String(req.query.name || '').trim().toUpperCase();
+  if (!name) return res.status(400).json({ error: 'Room name required', available: false });
+  const exists = roomManager.hasRoom(name);
+  res.json({ roomName: name, available: !exists, exists });
+});
+
 // API: Health check & active rooms
 app.get('/api/health', (_req, res) => {
   res.json({ 
@@ -95,9 +103,23 @@ app.get('*', (_req, res) => {
 
 // Socket.IO Real-time Virtual Room Relay
 io.on('connection', (socket: Socket) => {
-  // 1. Create Virtual Room (from Host / TV)
-  socket.on('createRoom', async (data?: { password?: string; hostOrigin?: string }) => {
-    const room = roomManager.createRoom(socket.id, data?.password);
+  // 0. Check Room Name Availability
+  socket.on('checkRoom', (data: { roomName: string }, callback?: (res: any) => void) => {
+    const name = String(data?.roomName || '').trim().toUpperCase();
+    const exists = roomManager.hasRoom(name);
+    const result = { roomName: name, available: !exists, exists };
+    if (callback) callback(result);
+    else socket.emit('roomChecked', result);
+  });
+
+  // 1. Create Virtual Room (from Host / TV) with optional custom name and password
+  socket.on('createRoom', async (data?: { roomName?: string; password?: string; hostOrigin?: string }) => {
+    const creation = roomManager.createRoom(socket.id, data?.roomName, data?.password);
+    if (!creation.success || !creation.room) {
+      socket.emit('roomCreateError', { error: creation.error || 'Failed to create room' });
+      return;
+    }
+    const room = creation.room;
     socket.join(room.roomCode);
 
     const baseUrl = data?.hostOrigin || `http://${localIp}:${PORT}`;
@@ -200,6 +222,20 @@ io.on('connection', (socket: Socket) => {
   // 6. Station Minigame Trigger & Bounty Sync
   socket.on('triggerMinigame', (data: { roomCode: string; targetSocketId: string; stationType: string }) => {
     io.to(data.targetSocketId).emit('triggerMinigame', { stationType: data.stationType });
+  });
+
+  // 6.5 VIP Player 1 Cast Off from Phone Controller!
+  socket.on('startRoundFromController', () => {
+    const room = roomManager.getRoomForSocket(socket.id);
+    if (room) {
+      const client = room.clients.get(socket.id);
+      if (client && client.playerIndex === 0) {
+        // Player 1 verified! Notify host to start game and notify room
+        io.to(room.hostSocketId).emit('startRoundFromPhone');
+        io.to(room.roomCode).emit('lobbyGameStarted');
+        console.log(`[Lobby Cast Off] Player 1 started game in room ${room.roomCode}!`);
+      }
+    }
   });
 
   // 7. Disconnect Handler

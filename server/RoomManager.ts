@@ -43,10 +43,34 @@ export class RoomManager {
   }
 
   /**
-   * Creates a new virtual room hosted by hostSocketId with optional password
+   * Checks if an active room already exists by room code / name
    */
-  public createRoom(hostSocketId: string, password?: string): VirtualRoom {
-    const roomCode = this.generateRoomCode();
+  public hasRoom(roomCode: string): boolean {
+    if (!roomCode) return false;
+    return this.rooms.has(roomCode.toUpperCase().trim());
+  }
+
+  /**
+   * Creates a new virtual room hosted by hostSocketId with custom room name and optional password
+   */
+  public createRoom(
+    hostSocketId: string,
+    customRoomName?: string,
+    password?: string
+  ): { success: boolean; room?: VirtualRoom; error?: string } {
+    let roomCode = '';
+    if (customRoomName && customRoomName.trim().length > 0) {
+      roomCode = customRoomName.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+      if (roomCode.length < 2) {
+        return { success: false, error: 'Room name must be at least 2 characters long' };
+      }
+      if (this.rooms.has(roomCode)) {
+        return { success: false, error: `Room name "${roomCode}" is already active!` };
+      }
+    } else {
+      roomCode = this.generateRoomCode();
+    }
+
     const cleanPassword = password && password.trim().length > 0 ? password.trim() : undefined;
 
     const room: VirtualRoom = {
@@ -70,7 +94,7 @@ export class RoomManager {
     this.rooms.set(roomCode, room);
     this.socketToRoom.set(hostSocketId, roomCode);
 
-    return room;
+    return { success: true, room };
   }
 
   public getRoom(roomCode: string): VirtualRoom | undefined {

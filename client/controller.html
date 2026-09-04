@@ -211,6 +211,45 @@
                 <span>CONNECT CONTROLLER</span>
             </button>
         </div>
+    <!-- VIP LOBBY CONTROL OVERLAY (Shown when in lobby before game starts) -->
+    <div id="ctrl-lobby-overlay" class="fixed inset-0 bg-slate-950/95 backdrop-blur-xl z-40 flex flex-col justify-between p-5 text-center select-none hidden">
+        <div class="space-y-2 mt-4">
+            <div id="ctrl-lobby-role-badge" class="inline-block px-3.5 py-1 rounded-full text-xs font-black font-mono uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                👑 LOBBY LEADER (PLAYER 1)
+            </div>
+            <h2 class="text-2xl font-black text-white">READY FOR EXPEDITION</h2>
+            <p id="ctrl-lobby-subtitle" class="text-xs text-slate-400 max-w-xs mx-auto">
+                You are the leader! Tap Cast Off below when everyone is ready to start the game on the TV.
+            </p>
+        </div>
+
+        <!-- Active Room & Crew Info -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 max-w-sm mx-auto w-full space-y-3">
+            <div class="flex items-center justify-between text-xs border-b border-slate-800 pb-2">
+                <span class="text-slate-400 uppercase font-bold">Room Code</span>
+                <span id="ctrl-lobby-room-name" class="font-mono font-black text-teal-300 text-sm">LOCAL</span>
+            </div>
+            <div class="space-y-1.5 text-left">
+                <span class="text-[10px] text-slate-400 font-bold uppercase">Crew Roster</span>
+                <div id="ctrl-lobby-crew-list" class="space-y-1.5 text-xs">
+                    <div class="p-2 rounded-xl bg-slate-950 border border-teal-500/40 flex items-center justify-between">
+                        <span class="font-bold text-teal-300">🔵 Player 1 (You)</span>
+                        <span class="text-[10px] text-emerald-400 font-mono font-bold">READY</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Host Cast Off Button (Active for P1) -->
+        <div class="mb-4 max-w-sm mx-auto w-full space-y-2">
+            <button id="btn-ctrl-cast-off" onclick="window.phoneController.castOffFromPhone()" class="w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 text-slate-950 font-black py-4 rounded-2xl transition shadow-xl shadow-teal-500/30 flex items-center justify-center space-x-2 text-base active:scale-95 animate-pulse">
+                <i class="fa-solid fa-anchor"></i>
+                <span>⚡ CAST OFF / GET FISHING!</span>
+            </button>
+            <p id="ctrl-lobby-waiting-text" class="text-xs text-amber-300 font-bold hidden animate-pulse">
+                ⏳ Waiting for Player 1 (Lobby Leader) to cast off...
+            </p>
+        </div>
     </div>
 
     <!-- Controller Client Logic -->
