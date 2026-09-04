@@ -18,7 +18,7 @@ const io = new Server(server, {
   }
 });
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 3050;
 const roomManager = new RoomManager();
 
 // Helper: Get local network IP for LAN mobile connection

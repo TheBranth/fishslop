@@ -4,15 +4,15 @@ import path from 'path';
 export default defineConfig({
   root: './client',
   server: {
-    port: 5173,
+    port: 5180,
     host: '0.0.0.0',
     proxy: {
       '/socket.io': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:3050',
         ws: true
       },
       '/api': {
-        target: 'http://localhost:3000'
+        target: 'http://localhost:3050'
       }
     }
   },
