@@ -22,7 +22,12 @@ export class GameRenderer {
   private waveOffset: number = 0;
   public showDebugMass: boolean = true;
   public floatingPopups: FloatingComicPopup[] = [];
-  private fishermanSprites: Record<string, { idle: HTMLImageElement; run: HTMLImageElement[] }> = {};
+  private fishermanSprites: Record<string, {
+    idle: HTMLImageElement;
+    runSide: HTMLImageElement[];
+    runDown: HTMLImageElement[];
+    runUp: HTMLImageElement[];
+  }> = {};
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -35,13 +40,23 @@ export class GameRenderer {
     colors.forEach(c => {
       const idle = new Image();
       idle.src = `/assets/sprites/fisherman/${c}/idle.png`;
-      const run: HTMLImageElement[] = [];
+      const runSide: HTMLImageElement[] = [];
+      const runDown: HTMLImageElement[] = [];
+      const runUp: HTMLImageElement[] = [];
       for (let i = 0; i < 4; i++) {
-        const img = new Image();
-        img.src = `/assets/sprites/fisherman/${c}/run_${i}.png`;
-        run.push(img);
+        const imgSide = new Image();
+        imgSide.src = `/assets/sprites/fisherman/${c}/run_${i}.png`;
+        runSide.push(imgSide);
+
+        const imgDown = new Image();
+        imgDown.src = `/assets/sprites/fisherman/${c}/run_down_${i}.png`;
+        runDown.push(imgDown);
+
+        const imgUp = new Image();
+        imgUp.src = `/assets/sprites/fisherman/${c}/run_up_${i}.png`;
+        runUp.push(imgUp);
       }
-      this.fishermanSprites[c] = { idle, run };
+      this.fishermanSprites[c] = { idle, runSide, runDown, runUp };
     });
   }
 
@@ -693,16 +708,32 @@ export class GameRenderer {
     const sprites = this.fishermanSprites[player.color] || this.fishermanSprites['yellow'];
     if (sprites && sprites.idle.complete) {
       ctx.save();
-      // If facing left, flip horizontally around the center
-      if (player.facing === 'left') {
-        ctx.scale(-1, 1);
-      }
+      const frameIdx = Math.floor((Date.now() / 125 + player.playerIndex) % 4);
+      let spriteImg: HTMLImageElement = sprites.idle;
 
-      let spriteImg = sprites.idle;
-      if (isMoving && !player.isSlipping && !player.isStunned && sprites.run.length === 4) {
-        // Frantic sweating run cycle (4 frames, 125ms per frame)
-        const frameIdx = Math.floor((Date.now() / 125 + player.playerIndex) % 4);
-        spriteImg = sprites.run[frameIdx];
+      if (isMoving && !player.isSlipping && !player.isStunned) {
+        if (player.facing === 'up' && sprites.runUp.length === 4) {
+          spriteImg = sprites.runUp[frameIdx];
+        } else if (player.facing === 'down' && sprites.runDown.length === 4) {
+          spriteImg = sprites.runDown[frameIdx];
+        } else if (sprites.runSide.length === 4) {
+          if (player.facing === 'left') {
+            ctx.scale(-1, 1);
+          }
+          spriteImg = sprites.runSide[frameIdx];
+        }
+      } else {
+        // Idle stances
+        if (player.facing === 'up' && sprites.runUp.length >= 2) {
+          spriteImg = sprites.runUp[1]; // Rear idle stance
+        } else if (player.facing === 'down' && sprites.runDown.length >= 2) {
+          spriteImg = sprites.runDown[1]; // Front idle stance
+        } else {
+          if (player.facing === 'left') {
+            ctx.scale(-1, 1);
+          }
+          spriteImg = sprites.idle;
+        }
       }
 
       // Draw sprite centered at player position
