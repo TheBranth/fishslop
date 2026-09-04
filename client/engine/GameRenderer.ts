@@ -30,6 +30,7 @@ export class GameRenderer {
     carryDown: HTMLImageElement;
     carrySide: HTMLImageElement;
     carryUp: HTMLImageElement;
+    carryRunSide: HTMLImageElement[];
   }> = {};
 
   constructor(canvas: HTMLCanvasElement) {
@@ -53,6 +54,7 @@ export class GameRenderer {
       const runSide: HTMLImageElement[] = [];
       const runDown: HTMLImageElement[] = [];
       const runUp: HTMLImageElement[] = [];
+      const carryRunSide: HTMLImageElement[] = [];
       for (let i = 0; i < 4; i++) {
         const imgSide = new Image();
         imgSide.src = `/assets/sprites/fisherman/${c}/run_${i}.png`;
@@ -65,8 +67,12 @@ export class GameRenderer {
         const imgUp = new Image();
         imgUp.src = `/assets/sprites/fisherman/${c}/run_up_${i}.png`;
         runUp.push(imgUp);
+
+        const imgCarry = new Image();
+        imgCarry.src = `/assets/sprites/fisherman/${c}/carry_run_${i}.png`;
+        carryRunSide.push(imgCarry);
       }
-      this.fishermanSprites[c] = { idle, runSide, runDown, runUp, carryDown, carrySide, carryUp };
+      this.fishermanSprites[c] = { idle, runSide, runDown, runUp, carryDown, carrySide, carryUp, carryRunSide };
     });
   }
 
@@ -722,8 +728,13 @@ export class GameRenderer {
       let spriteImg: HTMLImageElement = sprites.idle;
 
       if (player.holdingItemId && !player.isSlipping && !player.isStunned) {
-        // Carrying pose with arms raised overhead in 3 directions!
-        if (player.facing === 'up' && sprites.carryUp) {
+        // Carrying pose with arms raised overhead: animated run when moving sideways!
+        if (isMoving && sprites.carryRunSide.length === 4 && (player.facing === 'left' || player.facing === 'right')) {
+          if (player.facing === 'left') {
+            ctx.scale(-1, 1);
+          }
+          spriteImg = sprites.carryRunSide[frameIdx];
+        } else if (player.facing === 'up' && sprites.carryUp) {
           spriteImg = sprites.carryUp;
         } else if (player.facing === 'down' && sprites.carryDown) {
           spriteImg = sprites.carryDown;
