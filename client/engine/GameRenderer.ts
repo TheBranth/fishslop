@@ -27,6 +27,9 @@ export class GameRenderer {
     runSide: HTMLImageElement[];
     runDown: HTMLImageElement[];
     runUp: HTMLImageElement[];
+    carryDown: HTMLImageElement;
+    carrySide: HTMLImageElement;
+    carryUp: HTMLImageElement;
   }> = {};
 
   constructor(canvas: HTMLCanvasElement) {
@@ -40,6 +43,13 @@ export class GameRenderer {
     colors.forEach(c => {
       const idle = new Image();
       idle.src = `/assets/sprites/fisherman/${c}/idle.png`;
+      const carryDown = new Image();
+      carryDown.src = `/assets/sprites/fisherman/${c}/carry_down.png`;
+      const carrySide = new Image();
+      carrySide.src = `/assets/sprites/fisherman/${c}/carry_side.png`;
+      const carryUp = new Image();
+      carryUp.src = `/assets/sprites/fisherman/${c}/carry_up.png`;
+
       const runSide: HTMLImageElement[] = [];
       const runDown: HTMLImageElement[] = [];
       const runUp: HTMLImageElement[] = [];
@@ -56,7 +66,7 @@ export class GameRenderer {
         imgUp.src = `/assets/sprites/fisherman/${c}/run_up_${i}.png`;
         runUp.push(imgUp);
       }
-      this.fishermanSprites[c] = { idle, runSide, runDown, runUp };
+      this.fishermanSprites[c] = { idle, runSide, runDown, runUp, carryDown, carrySide, carryUp };
     });
   }
 
@@ -711,7 +721,19 @@ export class GameRenderer {
       const frameIdx = Math.floor((Date.now() / 125 + player.playerIndex) % 4);
       let spriteImg: HTMLImageElement = sprites.idle;
 
-      if (isMoving && !player.isSlipping && !player.isStunned) {
+      if (player.holdingItemId && !player.isSlipping && !player.isStunned) {
+        // Carrying pose with arms raised overhead in 3 directions!
+        if (player.facing === 'up' && sprites.carryUp) {
+          spriteImg = sprites.carryUp;
+        } else if (player.facing === 'down' && sprites.carryDown) {
+          spriteImg = sprites.carryDown;
+        } else if (sprites.carrySide) {
+          if (player.facing === 'left') {
+            ctx.scale(-1, 1);
+          }
+          spriteImg = sprites.carrySide;
+        }
+      } else if (isMoving && !player.isSlipping && !player.isStunned) {
         if (player.facing === 'up' && sprites.runUp.length === 4) {
           spriteImg = sprites.runUp[frameIdx];
         } else if (player.facing === 'down' && sprites.runDown.length === 4) {
