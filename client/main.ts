@@ -606,7 +606,7 @@ export class GameApp {
     const quickstartQr = document.getElementById('quickstart-qr-img') as HTMLImageElement;
     if (quickstartQr) {
       const quickstartUrl = `${origin}/controller.html?player=p1`;
-      quickstartQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(quickstartUrl)}`;
+      quickstartQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(quickstartUrl)}`;
     }
 
     // 2. Local TV Party QR Code & Direct Link

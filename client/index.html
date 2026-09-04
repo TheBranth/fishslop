@@ -402,49 +402,53 @@
     <!-- ========================================================= -->
     <div id="title-screen-container" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 overflow-hidden select-none">
         
-        <!-- Fullscreen Pixel Art Artwork Backdrop -->
-        <img src="/assets/title_screen.jpg" alt="Friendslop Fishing Co." class="absolute inset-0 w-full h-full object-cover filter brightness-90 contrast-105 pointer-events-none" style="image-rendering: pixelated;">
+        <!-- Ambient Bleed Backdrop (Soft blurred fill) -->
+        <img src="/assets/title_screen.jpg" alt="" class="absolute inset-0 w-full h-full object-cover filter blur-2xl opacity-40 scale-105 pointer-events-none" style="image-rendering: pixelated;">
         
-        <!-- Subtle Atmospheric Vignette -->
-        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/40 pointer-events-none"></div>
+        <!-- Sharp Uncropped Pixel Art Artwork Backdrop (100% visible, centered, unclipped) -->
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <img src="/assets/title_screen.jpg" alt="Friendslop Fishing Co." class="w-full h-full object-contain filter brightness-95 contrast-105" style="image-rendering: pixelated; max-width: 100vw; max-height: 100vh;">
+        </div>
 
-        <!-- Smart TV Zero-Remote Quickstart Badge in Top-Right Corner -->
-        <div id="quickstart-tv-badge" class="absolute top-4 right-4 z-20 bg-slate-900/85 backdrop-blur-md border border-teal-500/40 rounded-2xl p-2.5 shadow-2xl flex items-center space-x-3 max-w-xs group hover:border-teal-400 transition">
-            <img id="quickstart-qr-img" src="" alt="Quickstart QR" class="w-16 h-16 rounded-xl bg-white p-1 shadow-md shrink-0">
-            <div class="text-left space-y-0.5">
-                <div class="flex items-center space-x-1.5">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                    <span class="text-[11px] font-black text-white tracking-wide uppercase">TV Quickstart</span>
-                </div>
-                <p class="text-[10px] text-slate-300 leading-tight">Scan with phone to control lobby & cast off (no TV remote needed!)</p>
+        <!-- Subtle Atmospheric Vignette -->
+        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/30 pointer-events-none"></div>
+
+        <!-- Smart TV Zero-Remote Quickstart Badge in Bottom-Right Corner (Larger & Prominent) -->
+        <div id="quickstart-tv-badge" class="absolute bottom-5 right-5 z-30 bg-slate-900/90 backdrop-blur-md border border-teal-500/50 rounded-3xl p-3.5 shadow-2xl flex flex-col items-center space-y-2 max-w-[190px] text-center group hover:border-teal-400 transition hover:scale-105">
+            <div class="flex items-center space-x-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                <span class="text-xs font-black text-white tracking-wider uppercase">TV Quickstart</span>
             </div>
+            <div class="p-2 bg-white rounded-2xl shadow-inner">
+                <img id="quickstart-qr-img" src="" alt="Quickstart QR" class="w-32 h-32 rounded-xl bg-white shadow-md">
+            </div>
+            <p class="text-[11px] font-medium text-slate-300 leading-tight">Scan with phone to control lobby & cast off!</p>
         </div>
 
         <!-- Center Hovering Semi-Transparent Gray Card -->
-        <div id="title-menu-card" class="relative z-10 backdrop-blur-md bg-slate-900/85 border border-slate-700/60 rounded-3xl p-6 sm:p-8 shadow-2xl max-w-md w-full mx-4 space-y-5 text-center transition-all duration-300">
+        <div id="title-menu-card" class="relative z-20 mt-14 sm:mt-16 backdrop-blur-md bg-slate-900/85 border border-slate-700/60 rounded-3xl p-6 sm:p-7 shadow-2xl max-w-sm sm:max-w-md w-full mx-4 space-y-4 text-center transition-all duration-300">
             
             <!-- VIEW 1: MAIN MENU (Play Local, Play Online, Settings) -->
-            <div id="title-view-menu" class="space-y-4">
+            <div id="title-view-menu" class="space-y-3.5">
                 <div class="space-y-1">
-                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-2xl mx-auto shadow-lg shadow-amber-500/20">
+                    <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-xl mx-auto shadow-lg shadow-amber-500/20">
                         <i class="fa-solid fa-fish-fins"></i>
                     </div>
-                    <h2 class="text-2xl font-black text-white tracking-wide">FRIENDSLOP FISHING CO.</h2>
-                    <p class="text-xs text-slate-400">Co-op Trawler Slapstick & Roguelite Expeditions</p>
+                    <p class="text-xs text-slate-300 font-medium">Co-op Trawler Slapstick & Roguelite Expeditions</p>
                 </div>
 
-                <div class="space-y-2.5 pt-2">
-                    <button onclick="window.gameApp.showTitleView('local')" class="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-black py-3.5 rounded-2xl transition shadow-xl shadow-teal-950/40 flex items-center justify-center space-x-2 text-sm active:scale-95">
+                <div class="space-y-2.5 pt-1">
+                    <button onclick="window.gameApp.showTitleView('local')" class="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-black py-3 rounded-2xl transition shadow-xl shadow-teal-950/40 flex items-center justify-center space-x-2 text-sm active:scale-95">
                         <i class="fa-solid fa-tv text-amber-300"></i>
                         <span>PLAY LOCAL</span>
                     </button>
 
-                    <button onclick="window.gameApp.showTitleView('online-form')" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black py-3.5 rounded-2xl transition shadow-xl shadow-purple-950/40 flex items-center justify-center space-x-2 text-sm active:scale-95">
+                    <button onclick="window.gameApp.showTitleView('online-form')" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black py-3 rounded-2xl transition shadow-xl shadow-purple-950/40 flex items-center justify-center space-x-2 text-sm active:scale-95">
                         <i class="fa-solid fa-globe text-teal-300"></i>
                         <span>PLAY ONLINE</span>
                     </button>
 
-                    <button onclick="window.gameApp.showTitleView('settings')" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold py-3 rounded-2xl transition shadow-md flex items-center justify-center space-x-2 text-sm active:scale-95">
+                    <button onclick="window.gameApp.showTitleView('settings')" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold py-2.5 rounded-2xl transition shadow-md flex items-center justify-center space-x-2 text-sm active:scale-95">
                         <i class="fa-solid fa-gear text-slate-400"></i>
                         <span>SETTINGS</span>
                     </button>
