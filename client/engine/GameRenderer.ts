@@ -22,10 +22,27 @@ export class GameRenderer {
   private waveOffset: number = 0;
   public showDebugMass: boolean = true;
   public floatingPopups: FloatingComicPopup[] = [];
+  private fishermanSprites: Record<string, { idle: HTMLImageElement; run: HTMLImageElement[] }> = {};
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
+    this.initSprites();
+  }
+
+  private initSprites(): void {
+    const colors = ['blue', 'yellow', 'red', 'green'];
+    colors.forEach(c => {
+      const idle = new Image();
+      idle.src = `/assets/sprites/fisherman/${c}/idle.png`;
+      const run: HTMLImageElement[] = [];
+      for (let i = 0; i < 4; i++) {
+        const img = new Image();
+        img.src = `/assets/sprites/fisherman/${c}/run_${i}.png`;
+        run.push(img);
+      }
+      this.fishermanSprites[c] = { idle, run };
+    });
   }
 
   public addPopup(text: string, color: string, x: number, y: number): void {
@@ -672,79 +689,73 @@ export class GameRenderer {
       }
     }
 
-    // 3. Animated Sailor Legs (Swinging with walk cycle)
-    if (isMoving && !player.isSlipping && !player.isStunned) {
-      ctx.fillStyle = '#0f172a';
+    // 3. Render Pixel-Art Sailor Sprite
+    const sprites = this.fishermanSprites[player.color] || this.fishermanSprites['yellow'];
+    if (sprites && sprites.idle.complete) {
+      ctx.save();
+      // If facing left, flip horizontally around the center
+      if (player.facing === 'left') {
+        ctx.scale(-1, 1);
+      }
+
+      let spriteImg = sprites.idle;
+      if (isMoving && !player.isSlipping && !player.isStunned && sprites.run.length === 4) {
+        // Frantic sweating run cycle (4 frames, 125ms per frame)
+        const frameIdx = Math.floor((Date.now() / 125 + player.playerIndex) % 4);
+        spriteImg = sprites.run[frameIdx];
+      }
+
+      // Draw sprite centered at player position
+      const sprW = 46;
+      const sprH = 46;
+      ctx.drawImage(spriteImg, -sprW / 2, -sprH + 14 - bobY, sprW, sprH);
+      ctx.restore();
+    } else {
+      // Fallback vector drawing if sprites not loaded yet
+      if (isMoving && !player.isSlipping && !player.isStunned) {
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.ellipse(-7 + walkPhase * 4, 14, 4, 3, 0, 0, Math.PI * 2);
+        ctx.ellipse(7 - walkPhase * 4, 14, 4, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = player.colorHex;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.ellipse(-7 + walkPhase * 4, 14, 4, 3, 0, 0, Math.PI * 2);
-      ctx.ellipse(7 - walkPhase * 4, 14, 4, 3, 0, 0, Math.PI * 2);
+      ctx.arc(0, -bobY, 16, 0, Math.PI * 2);
       ctx.fill();
+      ctx.stroke();
     }
 
-    // 4. Sailor Torso / Head
-    ctx.fillStyle = player.colorHex;
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(0, -bobY, 16, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    // 5. Sailor Hat / Party Hat
+    // Party Cone Hat if Conga Co-op chain
     const isConga = player.congaLeaderId || player.congaFollowerIds.length > 0;
     if (isConga) {
-      // Festive Conga Party Cone Hat
       ctx.fillStyle = '#ec4899';
       ctx.beginPath();
-      ctx.moveTo(0, -32 - bobY);
-      ctx.lineTo(-8, -16 - bobY);
-      ctx.lineTo(8, -16 - bobY);
+      ctx.moveTo(0, -42 - bobY);
+      ctx.lineTo(-7, -30 - bobY);
+      ctx.lineTo(7, -30 - bobY);
       ctx.closePath();
       ctx.fill();
       ctx.fillStyle = '#facc15';
       ctx.beginPath();
-      ctx.arc(0, -33 - bobY, 3, 0, Math.PI * 2);
+      ctx.arc(0, -43 - bobY, 3, 0, Math.PI * 2);
       ctx.fill();
-    } else {
-      // Classic Sailor Beanie / Cap
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(-10, -18 - bobY, 20, 6);
-      ctx.fillStyle = '#0284c7';
-      ctx.fillRect(-12, -13 - bobY, 24, 3);
     }
-
-    // 6. Directional Eyes & Pupils
-    ctx.fillStyle = '#ffffff';
-    let eyeOffsetX = 0;
-    let eyeOffsetY = 0;
-    if (player.facing === 'left') eyeOffsetX = -5;
-    if (player.facing === 'right') eyeOffsetX = 5;
-    if (player.facing === 'up') eyeOffsetY = -5;
-    if (player.facing === 'down') eyeOffsetY = 5;
-
-    ctx.beginPath();
-    ctx.arc(-4 + eyeOffsetX, -2 + eyeOffsetY - bobY, 3, 0, Math.PI * 2);
-    ctx.arc(4 + eyeOffsetX, -2 + eyeOffsetY - bobY, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#0f172a';
-    ctx.beginPath();
-    ctx.arc(-4 + eyeOffsetX * 1.3, -2 + eyeOffsetY * 1.3 - bobY, 1.5, 0, Math.PI * 2);
-    ctx.arc(4 + eyeOffsetX * 1.3, -2 + eyeOffsetY * 1.3 - bobY, 1.5, 0, Math.PI * 2);
-    ctx.fill();
 
     // 7. Player Name Tag
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 10px Plus Jakarta Sans';
     ctx.textAlign = 'center';
-    ctx.fillText(player.name.substring(0, 8), 0, -22 - bobY);
+    ctx.fillText(player.name.substring(0, 8), 0, -36 - bobY);
 
-    // 8. Held Item Visual
+    // 8. Held Item Visual (overhead carry)
     if (player.holdingItemId) {
       const held = state.items.find(i => i.id === player.holdingItemId);
       if (held) {
-        ctx.font = '20px Arial';
-        ctx.fillText(held.emoji, 0, -36 - bobY);
+        ctx.font = '22px Arial';
+        ctx.fillText(held.emoji, 0, -48 - bobY);
       }
     }
 
