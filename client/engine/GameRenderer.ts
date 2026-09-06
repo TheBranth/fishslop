@@ -31,7 +31,10 @@ export class GameRenderer {
     carrySide: HTMLImageElement;
     carryUp: HTMLImageElement;
     carryRunSide: HTMLImageElement[];
+    slip: HTMLImageElement;
+    conga: HTMLImageElement;
   }> = {};
+  private butterImg: HTMLImageElement | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -40,6 +43,9 @@ export class GameRenderer {
   }
 
   private initSprites(): void {
+    this.butterImg = new Image();
+    this.butterImg.src = '/assets/sprites/hazard_butter_slab.png';
+
     const colors = ['blue', 'yellow', 'red', 'green'];
     colors.forEach(c => {
       const idle = new Image();
@@ -50,6 +56,10 @@ export class GameRenderer {
       carrySide.src = `/assets/sprites/fisherman/${c}/carry_side.png`;
       const carryUp = new Image();
       carryUp.src = `/assets/sprites/fisherman/${c}/carry_up.png`;
+      const slip = new Image();
+      slip.src = `/assets/sprites/fisherman/${c}/slip.png`;
+      const conga = new Image();
+      conga.src = `/assets/sprites/fisherman/${c}/conga.png`;
 
       const runSide: HTMLImageElement[] = [];
       const runDown: HTMLImageElement[] = [];
@@ -72,7 +82,7 @@ export class GameRenderer {
         imgCarry.src = `/assets/sprites/fisherman/${c}/carry_run_${i}.png`;
         carryRunSide.push(imgCarry);
       }
-      this.fishermanSprites[c] = { idle, runSide, runDown, runUp, carryDown, carrySide, carryUp, carryRunSide };
+      this.fishermanSprites[c] = { idle, runSide, runDown, runUp, carryDown, carrySide, carryUp, carryRunSide, slip, conga };
     });
   }
 
@@ -704,18 +714,18 @@ export class GameRenderer {
     ctx.ellipse(0, 14, 16, 7, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 2. Slipping / Stunned Slapstick Animation (Flipped onto back with dizzy stars!)
-    if (player.isSlipping || player.isStunned) {
-      ctx.rotate(1.3);
+    const isSlipped = player.isSlipping || player.isStunned;
+    const isConga = (player.congaLeaderId || player.congaFollowerIds.length > 0) ? true : false;
 
-      // Dizzy spinning stars
+    // 2. Spinning Dizzy Stars if Stunned/Slipping
+    if (isSlipped) {
       const starT = Date.now() * 0.006;
       for (let s = 0; s < 3; s++) {
         const starAngle = starT + (s * (Math.PI * 2 / 3));
-        const starX = Math.cos(starAngle) * 22;
-        const starY = -28 + Math.sin(starAngle) * 8;
+        const starX = Math.cos(starAngle) * 26;
+        const starY = -34 + Math.sin(starAngle) * 9;
         ctx.fillStyle = '#facc15';
-        ctx.font = '10px Arial';
+        ctx.font = '12px Arial';
         ctx.fillText('⭐', starX, starY);
       }
     }
@@ -727,7 +737,19 @@ export class GameRenderer {
       const frameIdx = Math.floor((Date.now() / 125 + player.playerIndex) % 4);
       let spriteImg: HTMLImageElement = sprites.idle;
 
-      if (player.holdingItemId && !player.isSlipping && !player.isStunned) {
+      if (isSlipped && sprites.slip) {
+        // Slapstick butter slip wipeout sprite!
+        if (player.facing === 'left') {
+          ctx.scale(-1, 1);
+        }
+        spriteImg = sprites.slip;
+      } else if (isConga && sprites.conga) {
+        // Conga tug-of-war pulling pose!
+        if (player.facing === 'left') {
+          ctx.scale(-1, 1);
+        }
+        spriteImg = sprites.conga;
+      } else if (player.holdingItemId) {
         // Carrying pose with arms raised overhead: animated run when moving sideways!
         if (isMoving && sprites.carryRunSide.length === 4 && (player.facing === 'left' || player.facing === 'right')) {
           if (player.facing === 'left') {
@@ -744,7 +766,7 @@ export class GameRenderer {
           }
           spriteImg = sprites.carrySide;
         }
-      } else if (isMoving && !player.isSlipping && !player.isStunned) {
+      } else if (isMoving) {
         if (player.facing === 'up' && sprites.runUp.length === 4) {
           spriteImg = sprites.runUp[frameIdx];
         } else if (player.facing === 'down' && sprites.runDown.length === 4) {
@@ -758,9 +780,9 @@ export class GameRenderer {
       } else {
         // Idle stances
         if (player.facing === 'up' && sprites.runUp.length >= 2) {
-          spriteImg = sprites.runUp[1]; // Rear idle stance
+          spriteImg = sprites.runUp[1];
         } else if (player.facing === 'down' && sprites.runDown.length >= 2) {
-          spriteImg = sprites.runDown[1]; // Front idle stance
+          spriteImg = sprites.runDown[1];
         } else {
           if (player.facing === 'left') {
             ctx.scale(-1, 1);
@@ -790,22 +812,6 @@ export class GameRenderer {
       ctx.arc(0, -bobY, 16, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-    }
-
-    // Party Cone Hat if Conga Co-op chain
-    const isConga = player.congaLeaderId || player.congaFollowerIds.length > 0;
-    if (isConga) {
-      ctx.fillStyle = '#ec4899';
-      ctx.beginPath();
-      ctx.moveTo(0, -42 - bobY);
-      ctx.lineTo(-7, -30 - bobY);
-      ctx.lineTo(7, -30 - bobY);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#facc15';
-      ctx.beginPath();
-      ctx.arc(0, -43 - bobY, 3, 0, Math.PI * 2);
-      ctx.fill();
     }
 
     // 7. Player Name Tag
@@ -935,17 +941,23 @@ export class GameRenderer {
       ctx.translate(p.x, p.y);
 
       if (p.type === 'butter') {
-        ctx.fillStyle = 'rgba(250, 204, 21, 0.45)';
-        ctx.strokeStyle = 'rgba(254, 240, 138, 0.7)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, p.radius, p.radius * 0.65, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        if (this.butterImg && this.butterImg.complete && this.butterImg.naturalWidth > 0) {
+          const bw = p.radius * 2.4;
+          const bh = bw * (this.butterImg.naturalHeight / this.butterImg.naturalWidth);
+          ctx.drawImage(this.butterImg, -bw / 2, -bh / 2, bw, bh);
+        } else {
+          ctx.fillStyle = 'rgba(250, 204, 21, 0.45)';
+          ctx.strokeStyle = 'rgba(254, 240, 138, 0.7)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, p.radius, p.radius * 0.65, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
 
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '10px Arial';
-        ctx.fillText('🧈', -5, 3);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '10px Arial';
+          ctx.fillText('🧈', -5, 3);
+        }
       } else if (p.type === 'slime') {
         ctx.fillStyle = 'rgba(16, 185, 129, 0.45)';
         ctx.strokeStyle = 'rgba(110, 231, 183, 0.7)';
