@@ -37,72 +37,59 @@ CREW_PALETTES = {
     }
 }
 
-def remove_chromakey(image: Image.Image, key_color=(255, 0, 255), threshold=55) -> Image.Image:
-    """Replaces pixels matching key_color within Euclidean distance threshold with RGBA(0,0,0,0)."""
-    rgba_img = image.convert('RGBA')
-    datas = rgba_img.getdata()
-    
-    kr, kg, kb = key_color
-    new_data = []
-    
-    for item in datas:
-        r, g, b, a = item
-        dist = math.sqrt((r - kr)**2 + (g - kg)**2 + (b - kb)**2)
-        if dist < threshold:
-            new_data.append((0, 0, 0, 0))
-        else:
-            new_data.append(item)
-            
-    rgba_img.putdata(new_data)
-    return rgba_img
+import numpy as np
 
-def crop_transparent(image: Image.Image) -> Image.Image:
-    """Tightly crops image to non-transparent bounding box."""
-    bbox = image.getbbox()
+def defringe_and_crop(img: Image.Image, target_size=(256, 256), padding=16) -> Image.Image:
+    """Removes hotpink chroma key and defringes JPEG ringing, crops tightly, and centers in target_size."""
+    img_rgba = img.convert('RGBA')
+    arr = np.array(img_rgba, dtype=float)
+    r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+
+    # True background mask: high red, low green, high blue
+    bg_mask = (r > 165) & (g < 85) & (b > 65)
+    
+    # Fringe pixels (JPEG compression artifacts bleeding pink into dark comic outlines)
+    fringe_mask = (r - g > 50) & (b - g > 30) & (g < 115) & (~bg_mask)
+    
+    arr[bg_mask, 3] = 0
+    arr[fringe_mask, 0] = arr[fringe_mask, 1]
+    arr[fringe_mask, 2] = arr[fringe_mask, 1]
+
+    cleaned = Image.fromarray(arr.astype(np.uint8))
+    bbox = cleaned.getbbox()
     if bbox:
-        return image.crop(bbox)
-    return image
-
-def scale_pixel_art(image: Image.Image, target_size=(48, 48)) -> Image.Image:
-    """Scales image down to target size using NEAREST neighbor to preserve pixel art crispness."""
-    img_w, img_h = image.size
-    aspect = img_w / img_h
-    target_w, target_h = target_size
-    
-    if aspect > 1.0:
-        new_w = target_w
-        new_h = max(1, int(target_w / aspect))
-    else:
-        new_h = target_h
-        new_w = max(1, int(target_h * aspect))
+        cropped = cleaned.crop(bbox)
+        cw, ch = target_size
+        max_w = cw - padding * 2
+        max_h = ch - padding * 2
+        w, h = cropped.size
+        scale = min(max_w / w, max_h / h)
+        tw = max(1, int(w * scale))
+        th = max(1, int(h * scale))
+        res = cropped.resize((tw, th), Image.Resampling.LANCZOS)
         
-    scaled = image.resize((new_w, new_h), resample=Image.Resampling.NEAREST)
-    
-    final_canvas = Image.new('RGBA', target_size, (0, 0, 0, 0))
-    offset_x = (target_w - new_w) // 2
-    offset_y = (target_h - new_h) // 2
-    final_canvas.paste(scaled, (offset_x, offset_y), scaled)
-    return final_canvas
+        canvas = Image.new('RGBA', target_size, (0, 0, 0, 0))
+        canvas.paste(res, ((cw - tw) // 2, (ch - th) // 2), res)
+        return canvas
+    return cleaned
 
-def process_sprite(input_path: str, output_path: str, target_size=(48, 48), threshold=55):
+def process_sprite(input_path: str, output_path: str, target_size=(256, 256), padding=16):
     """Processes a single raw generation file into a clean transparent pixel sprite."""
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     raw = Image.open(input_path)
-    keyed = remove_chromakey(raw, HOTPINK_RGB, threshold=threshold)
-    cropped = crop_transparent(keyed)
-    pixel = scale_pixel_art(cropped, target_size=target_size)
-    pixel.save(output_path, 'PNG')
+    result = defringe_and_crop(raw, target_size=target_size, padding=padding)
+    result.save(output_path, 'PNG')
     print(f"[OK] Processed {input_path} -> {output_path} ({target_size[0]}x{target_size[1]})")
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
-        print("Usage: python process_sprites.py <input_file> <output_file> [target_w] [target_h] [threshold]")
+        print("Usage: python process_sprites.py <input_file> <output_file> [target_w] [target_h] [padding]")
         sys.exit(0)
         
     in_file = sys.argv[1]
     out_file = sys.argv[2]
-    w = int(sys.argv[3]) if len(sys.argv) > 3 else 48
-    h = int(sys.argv[4]) if len(sys.argv) > 4 else 48
-    thresh = int(sys.argv[5]) if len(sys.argv) > 5 else 55
+    w = int(sys.argv[3]) if len(sys.argv) > 3 else 256
+    h = int(sys.argv[4]) if len(sys.argv) > 4 else 256
+    pad = int(sys.argv[5]) if len(sys.argv) > 5 else 16
     
-    process_sprite(in_file, out_file, (w, h), thresh)
+    process_sprite(in_file, out_file, (w, h), pad)

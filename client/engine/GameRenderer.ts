@@ -35,6 +35,7 @@ export class GameRenderer {
     conga: HTMLImageElement;
   }> = {};
   private butterImg: HTMLImageElement | null = null;
+  private itemSprites: Record<string, HTMLImageElement> = {};
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -45,6 +46,25 @@ export class GameRenderer {
   private initSprites(): void {
     this.butterImg = new Image();
     this.butterImg.src = '/assets/sprites/hazard_butter_slab.png';
+
+    // Initialize Item & Food Sprites
+    const itemMap: Record<string, string> = {
+      cod: '/assets/sprites/fish/cod.png',
+      guppy: '/assets/sprites/fish/guppy.png',
+      boot: '/assets/sprites/fish/boot.png',
+      salmon: '/assets/sprites/fish/salmon.png',
+      eel: '/assets/sprites/fish/eel.png',
+      fillet: '/assets/sprites/food/fillet.png',
+      fried_dish: '/assets/sprites/food/fried_dish.png',
+      sushi: '/assets/sprites/food/sushi.png',
+      soup: '/assets/sprites/food/soup.png',
+      butter: '/assets/sprites/hazard_butter_slab.png',
+    };
+    Object.entries(itemMap).forEach(([key, src]) => {
+      const img = new Image();
+      img.src = src;
+      this.itemSprites[key] = img;
+    });
 
     const colors = ['blue', 'yellow', 'red', 'green'];
     colors.forEach(c => {
@@ -84,6 +104,19 @@ export class GameRenderer {
       }
       this.fishermanSprites[c] = { idle, runSide, runDown, runUp, carryDown, carrySide, carryUp, carryRunSide, slip, conga };
     });
+  }
+
+  public getItemSprite(item: EntityItem): HTMLImageElement | null {
+    if (item.speciesId && this.itemSprites[item.speciesId]) {
+      return this.itemSprites[item.speciesId];
+    }
+    if (this.itemSprites[item.type]) {
+      return this.itemSprites[item.type];
+    }
+    if (item.name && this.itemSprites[item.name.toLowerCase()]) {
+      return this.itemSprites[item.name.toLowerCase()];
+    }
+    return null;
   }
 
   public addPopup(text: string, color: string, x: number, y: number): void {
@@ -656,6 +689,22 @@ export class GameRenderer {
       ctx.fillText('Discard Boots', station.x + station.w / 2, station.y + station.h / 2 + 12);
     }
 
+    // Render item being processed on the station
+    if (station.heldItem) {
+      const itemSprite = this.getItemSprite(station.heldItem);
+      const ix = station.x + station.w / 2;
+      const iy = station.y + station.h / 2 - 2;
+      if (itemSprite && itemSprite.complete && itemSprite.naturalWidth > 0) {
+        const isz = 30;
+        ctx.drawImage(itemSprite, ix - isz / 2, iy - isz / 2, isz, isz);
+      } else {
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(station.heldItem.emoji, ix, iy);
+      }
+    }
+
     // Slapstick Penalty Overlays (Broken Knife & Electrified Basin)
     if (station.isBroken) {
       ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
@@ -680,20 +729,28 @@ export class GameRenderer {
     ctx.save();
     ctx.translate(item.x, item.y);
 
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    // Floor shadow
+    ctx.fillStyle = 'rgba(2, 6, 23, 0.3)';
     ctx.beginPath();
-    ctx.ellipse(0, 10, 14, 6, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 10, 16, 7, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.font = '22px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(item.emoji, 0, 0);
+    const sprite = this.getItemSprite(item);
+    if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+      const size = 36;
+      ctx.drawImage(sprite, -size / 2, -size / 2 - 2, size, size);
+    } else {
+      ctx.font = '22px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(item.emoji, 0, 0);
+    }
 
     if (item.speciesId === 'bombfish' && item.stateTimer !== undefined) {
       ctx.fillStyle = '#ef4444';
       ctx.font = 'bold 10px Plus Jakarta Sans';
-      ctx.fillText(`💣 ${Math.ceil(item.stateTimer)}s`, 0, -18);
+      ctx.textAlign = 'center';
+      ctx.fillText(`💣 ${Math.ceil(item.stateTimer)}s`, 0, -20);
     }
 
     ctx.restore();
@@ -820,12 +877,21 @@ export class GameRenderer {
     ctx.textAlign = 'center';
     ctx.fillText(player.name.substring(0, 8), 0, -36 - bobY);
 
-    // 8. Held Item Visual (overhead carry)
+    // 8. Held Item Visual (overhead carry between palms)
     if (player.holdingItemId) {
       const held = state.items.find(i => i.id === player.holdingItemId);
       if (held) {
-        ctx.font = '22px Arial';
-        ctx.fillText(held.emoji, 0, -48 - bobY);
+        const sprite = this.getItemSprite(held);
+        if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+          const sz = 34;
+          // Overhead hands position
+          ctx.drawImage(sprite, -sz / 2, -48 - bobY - sz / 2, sz, sz);
+        } else {
+          ctx.font = '22px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(held.emoji, 0, -48 - bobY);
+        }
       }
     }
 
