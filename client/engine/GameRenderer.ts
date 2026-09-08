@@ -1290,26 +1290,33 @@ export class GameRenderer {
       ctx.stroke();
     }
 
-    // 7. Player Name Tag
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 10px Plus Jakarta Sans';
-    ctx.textAlign = 'center';
-    ctx.fillText(player.name.substring(0, 8), 0, -36 - bobY);
+    // 7. Player Name Tag (placed below feet or above pill)
+    if (!player.holdingItemId) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px Plus Jakarta Sans';
+      ctx.textAlign = 'center';
+      ctx.fillText(player.name.substring(0, 8), 0, -36 - bobY);
+    } else {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px Plus Jakarta Sans';
+      ctx.textAlign = 'center';
+      ctx.fillText(player.name.substring(0, 8), 0, -56 - bobY);
+    }
 
-    // 8. Held Item Visual (overhead carry between palms)
+    // 8. Held Item Visual (overhead carry resting naturally between raised palms)
     if (player.holdingItemId) {
       const held = state.items.find(i => i.id === player.holdingItemId);
       if (held) {
         const sprite = this.getItemSprite(held);
         if (sprite && sprite.complete && sprite.naturalWidth > 0) {
-          const sz = 34;
-          // Overhead hands position
-          ctx.drawImage(sprite, -sz / 2, -48 - bobY - sz / 2, sz, sz);
+          const sz = 32;
+          // Overhead hands position (snug between palms at y ≈ -36)
+          ctx.drawImage(sprite, -sz / 2, -36 - bobY - sz / 2, sz, sz);
         } else {
           ctx.font = '22px Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(held.emoji, 0, -48 - bobY);
+          ctx.fillText(held.emoji, 0, -36 - bobY);
         }
       }
     }
@@ -1349,7 +1356,7 @@ export class GameRenderer {
     // 9. Overhead Color-Coded Contextual Action Pill (Single-word, clean capsule)
     if (player.contextualAction) {
       const act = player.contextualAction;
-      const pillY = player.holdingItemId ? -56 - bobY : -36 - bobY;
+      const pillY = player.holdingItemId ? -66 - bobY : -36 - bobY;
 
       ctx.save();
       ctx.font = '900 9px "Plus Jakarta Sans", sans-serif';
