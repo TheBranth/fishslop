@@ -330,18 +330,23 @@ export class PhysicsEngine {
       }
 
       if (nearStation) {
-        const recipe = getRecipeForStation(nearStation.type, held);
-        if (recipe) {
-          nearStation.heldItem = held;
-          nearStation.isProcessing = true;
-          nearStation.progress = 0;
-          held.stateTimer = recipe.processTimeSeconds;
-          held.isHeld = false;
-          held.heldByPlayerId = null;
-          player.holdingItemId = null;
-          onEvent?.('sfx', 'station_start');
-          onEvent?.('feed', { text: `👨‍🍳 Started processing ${held.name} at ${nearStation.name}!`, type: 'info' });
-          return;
+        // Enforce south-side station access
+        if (PhysicsEngine.isPlayerAtStationSouth(player, nearStation)) {
+          const recipe = getRecipeForStation(nearStation.type, held);
+          if (recipe) {
+            player.facing = 'up';
+            player.actionTimer = 0.6;
+            nearStation.heldItem = held;
+            nearStation.isProcessing = true;
+            nearStation.progress = 0;
+            held.stateTimer = recipe.processTimeSeconds;
+            held.isHeld = false;
+            held.heldByPlayerId = null;
+            player.holdingItemId = null;
+            onEvent?.('sfx', 'station_start');
+            onEvent?.('feed', { text: `👨‍🍳 Started processing ${held.name} at ${nearStation.name}!`, type: 'info' });
+            return;
+          }
         }
       }
 
@@ -353,14 +358,16 @@ export class PhysicsEngine {
       player.holdingItemId = null;
       onEvent?.('sfx', 'drop');
     } else {
-      // Check if station has finished item ready to pick up
+      // Check if station has finished item ready to pick up (South side access)
       const stationWithItem = room.stations.find(s => 
         s.heldItem && 
         !s.isProcessing &&
-        Math.hypot(s.x + s.w/2 - player.x, s.y + s.h/2 - player.y) < 55
+        PhysicsEngine.isPlayerAtStationSouth(player, s)
       );
 
       if (stationWithItem && stationWithItem.heldItem) {
+        player.facing = 'up';
+        player.actionTimer = 0.6;
         const item = stationWithItem.heldItem;
         stationWithItem.heldItem = null;
         item.isHeld = true;
@@ -503,5 +510,15 @@ export class PhysicsEngine {
       item.y >= station.y &&
       item.y <= station.y + station.h
     );
+  }
+
+  // Stations are only usable from their south side (player stands south facing north)
+  public static isPlayerAtStationSouth(p: PlayerState, station: WorkStation): boolean {
+    if (station.type === 'cooler' || station.type === 'trash_chute') {
+      return Math.hypot(station.x + station.w / 2 - p.x, station.y + station.h / 2 - p.y) < 70;
+    }
+    const inXRange = p.x >= station.x - 10 && p.x <= station.x + station.w + 10;
+    const isSouth = p.y >= station.y + station.h - 6 && p.y <= station.y + station.h + 52;
+    return inXRange && isSouth;
   }
 }

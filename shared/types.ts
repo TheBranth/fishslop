@@ -38,6 +38,7 @@ export interface PlayerState {
   isSlipping: boolean;
   isSlowed?: boolean;
   slowTimer?: number;
+  actionTimer?: number; // Busy cooking/chopping at station
   isReady: boolean;
   holdingItemId: string | null;
   score: number;

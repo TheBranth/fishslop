@@ -351,6 +351,13 @@ export class LocalGameEngine {
         }
       }
 
+      if (p.actionTimer && p.actionTimer > 0) {
+        p.actionTimer -= 1 / 60;
+        if (p.actionTimer <= 0) {
+          p.actionTimer = undefined;
+        }
+      }
+
       // Check if holding a Radioactive Slime Eel
       if (p.holdingItemId) {
         const held = state.items.find(i => i.id === p.holdingItemId);
@@ -883,11 +890,10 @@ export class LocalGameEngine {
         return { label: 'GRAB', colorHex: '#f59e0b' };
       }
 
-      // Priority C: Kitchen Station with completed cooked food
+      // Priority C: Kitchen Station with completed cooked food (must approach from South)
       const finishedStation = this.state.stations.find(s => {
         if (!s.heldItem || s.isProcessing || s.type === 'cooler' || s.type === 'rod_rack') return false;
-        const dist = Math.hypot(s.x + s.w / 2 - p.x, s.y + s.h / 2 - p.y);
-        return dist < 65;
+        return this.isPlayerAtStationSouth(p, s);
       });
       if (finishedStation) {
         return { label: 'TAKE', colorHex: '#2dd4bf' };
@@ -897,7 +903,6 @@ export class LocalGameEngine {
       const isNearRailing =
         p.x < DECK_BOUNDS.minX + 35 ||
         p.x > DECK_BOUNDS.maxX - 35 ||
-        p.y < DECK_BOUNDS.minY + 35 ||
         p.y > DECK_BOUNDS.maxY - 35;
       if (isNearRailing) {
         return p.hasRodEquipped 
@@ -920,10 +925,8 @@ export class LocalGameEngine {
       return null;
     }
 
-    // 4. Holding an Item: Station Work or Gentle Drop
-    const nearStation = this.state.stations.find(s =>
-      Math.hypot(s.x + s.w / 2 - p.x, s.y + s.h / 2 - p.y) < 65
-    );
+    // 4. Holding an Item: Station Work or Gentle Drop (South side access)
+    const nearStation = this.state.stations.find(s => this.isPlayerAtStationSouth(p, s));
 
     if (nearStation) {
       if (nearStation.type === 'cooler') {
@@ -995,12 +998,14 @@ export class LocalGameEngine {
       }
     }
 
-    // 3. Active Minigame Progression on Stations
-    const nearStation = this.state.stations.find(s => 
-      Math.hypot(s.x + s.w/2 - p.x, s.y + s.h/2 - p.y) < 65
-    );
+    // 3. Active Minigame Progression on Stations (Only usable from South side)
+    const nearStation = this.state.stations.find(s => this.isPlayerAtStationSouth(p, s));
 
     if (nearStation) {
+      // Station action triggers busy animation facing North!
+      p.facing = 'up';
+      p.actionTimer = 0.6; // 600ms busy animation loop
+
       // Check Electrified Station Penalty
       if (nearStation.isElectrified) {
         this.triggerElectricShock(nearStation.x, nearStation.y);
@@ -1035,6 +1040,7 @@ export class LocalGameEngine {
       // Fillet 3-Chop Minigame
       if (nearStation.type === 'cutting_board' && nearStation.heldItem && nearStation.minigameState === 'chopping') {
         nearStation.chopCount = (nearStation.chopCount || 0) + 1;
+        p.actionTimer = 0.8;
         this.onEvent?.('sfx', 'chop');
         this.addFeedMessage(`🔪 CHOP! (${nearStation.chopCount}/3)`, 'info');
 
@@ -1062,6 +1068,7 @@ export class LocalGameEngine {
       // Soup Kettle Stir
       if (nearStation.type === 'soup_pot' && nearStation.heldItem && nearStation.minigameState === 'stirring') {
         nearStation.stirSwirls = (nearStation.stirSwirls || 0) + 1;
+        p.actionTimer = 0.8;
         this.onEvent?.('sfx', 'bubble');
         this.addFeedMessage(`🍲 STIRRING BROTH! (${nearStation.stirSwirls}/3)`, 'info');
 
@@ -1073,6 +1080,7 @@ export class LocalGameEngine {
 
       // Sushi Rolling Mat
       if (nearStation.type === 'sushi_station' && nearStation.heldItem && nearStation.minigameState === 'chopping') {
+        p.actionTimer = 0.8;
         this.completeStation(nearStation, p);
         return;
       }
@@ -1850,6 +1858,21 @@ export class LocalGameEngine {
       item.y >= station.y &&
       item.y <= station.y + station.h
     );
+  }
+
+  // Stations are only usable from their south side (player stands south facing north)
+  public isPlayerAtStationSouth(p: PlayerState, station: WorkStation): boolean {
+    // Fish hold (cooler) and trash chute can be accessed around their perimeter
+    if (station.type === 'cooler' || station.type === 'trash_chute') {
+      return Math.hypot(station.x + station.w / 2 - p.x, station.y + station.h / 2 - p.y) < 70;
+    }
+    // Prep & cooking stations (cutting board, fryer, soup kettle, sushi, rinse):
+    // Must stand directly south of the counter (p.y > station.y + station.h - 5)
+    // Within horizontal counter width (station.x - 10 to station.x + station.w + 10)
+    // Within reaching distance (p.y <= station.y + station.h + 52)
+    const inXRange = p.x >= station.x - 10 && p.x <= station.x + station.w + 10;
+    const isSouth = p.y >= station.y + station.h - 6 && p.y <= station.y + station.h + 52;
+    return inXRange && isSouth;
   }
 
   private triggerExplosion(x: number, y: number): void {

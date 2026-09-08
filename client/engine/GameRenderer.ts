@@ -40,6 +40,7 @@ export class GameRenderer {
     carryRunSide: HTMLImageElement[];
     slip: HTMLImageElement;
     conga: HTMLImageElement;
+    actionFrames: HTMLImageElement[];
   }> = {};
   private butterImg: HTMLImageElement | null = null;
   private itemSprites: Record<string, HTMLImageElement> = {};
@@ -109,7 +110,15 @@ export class GameRenderer {
         imgCarry.src = `/assets/sprites/fisherman/${c}/carry_run_${i}.png`;
         carryRunSide.push(imgCarry);
       }
-      this.fishermanSprites[c] = { idle, runSide, runDown, runUp, carryDown, carrySide, carryUp, carryRunSide, slip, conga };
+
+      const actionFrames: HTMLImageElement[] = [];
+      for (let i = 0; i < 4; i++) {
+        const imgAction = new Image();
+        imgAction.src = `/assets/sprites/fisherman/${c}/action_${i}.png`;
+        actionFrames.push(imgAction);
+      }
+
+      this.fishermanSprites[c] = { idle, runSide, runDown, runUp, carryDown, carrySide, carryUp, carryRunSide, slip, conga, actionFrames };
     });
   }
 
@@ -449,37 +458,72 @@ export class GameRenderer {
   private drawBoatHull(state: GameRoomState): void {
     const { ctx } = this;
 
-    ctx.fillStyle = '#0f172a';
+    // 1. Heavy Outer Timber Hull with Beveled Shading
+    const hullGrad = ctx.createLinearGradient(BOAT_BOUNDS.x, BOAT_BOUNDS.y, BOAT_BOUNDS.x, BOAT_BOUNDS.y + BOAT_BOUNDS.height);
+    hullGrad.addColorStop(0, '#1e293b');
+    hullGrad.addColorStop(0.5, '#0f172a');
+    hullGrad.addColorStop(1, '#020617');
+    ctx.fillStyle = hullGrad;
     ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 8;
+    ctx.lineWidth = 10;
     ctx.beginPath();
     ctx.roundRect(BOAT_BOUNDS.x, BOAT_BOUNDS.y, BOAT_BOUNDS.width, BOAT_BOUNDS.height, BOAT_BOUNDS.radius);
     ctx.fill();
     ctx.stroke();
+
+    // 2. Brass Hull Rivets & Corner Reinforcements
+    ctx.fillStyle = '#f59e0b';
+    const rivetSpacing = 60;
+    for (let rx = BOAT_BOUNDS.x + 30; rx < BOAT_BOUNDS.x + BOAT_BOUNDS.width - 20; rx += rivetSpacing) {
+      // Top & bottom hull studs
+      ctx.beginPath();
+      ctx.arc(rx, BOAT_BOUNDS.y + 6, 2.5, 0, Math.PI * 2);
+      ctx.arc(rx, BOAT_BOUNDS.y + BOAT_BOUNDS.height - 6, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     const deckX = BOAT_BOUNDS.x + 14;
     const deckY = BOAT_BOUNDS.y + 14;
     const deckW = BOAT_BOUNDS.width - 28;
     const deckH = BOAT_BOUNDS.height - 28;
 
-    ctx.fillStyle = '#1e293b';
+    // 3. Rich Weathered Teak Plank Deck
+    const deckGrad = ctx.createLinearGradient(deckX, deckY, deckX + deckW, deckY);
+    deckGrad.addColorStop(0, '#1e293b');
+    deckGrad.addColorStop(0.5, '#334155');
+    deckGrad.addColorStop(1, '#1e293b');
+    ctx.fillStyle = deckGrad;
     ctx.beginPath();
     ctx.roundRect(deckX, deckY, deckW, deckH, BOAT_BOUNDS.radius - 8);
     ctx.fill();
 
-    // Deck wood plank lines
-    ctx.strokeStyle = 'rgba(15, 23, 42, 0.65)';
+    // Subtle individual wood plank lines with alternating seams
+    ctx.strokeStyle = 'rgba(15, 23, 42, 0.55)';
     ctx.lineWidth = 2;
-    for (let y = deckY + 25; y < deckY + deckH; y += 28) {
+    let plankIdx = 0;
+    for (let y = deckY + 24; y < deckY + deckH; y += 26) {
       ctx.beginPath();
-      ctx.moveTo(deckX + 10, y);
-      ctx.lineTo(deckX + deckW - 10, y);
+      ctx.moveTo(deckX + 8, y);
+      ctx.lineTo(deckX + deckW - 8, y);
       ctx.stroke();
+
+      // Vertical nail/plank butt joints staggered
+      ctx.strokeStyle = 'rgba(2, 6, 23, 0.4)';
+      const seamOffset = (plankIdx % 3) * 70;
+      for (let sx = deckX + 60 + seamOffset; sx < deckX + deckW - 40; sx += 210) {
+        ctx.beginPath();
+        ctx.moveTo(sx, y - 26);
+        ctx.lineTo(sx, y);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(15, 23, 42, 0.55)';
+      plankIdx++;
     }
 
     // Center dividing keel line
-    ctx.strokeStyle = 'rgba(45, 212, 191, 0.18)';
-    ctx.setLineDash([6, 6]);
+    ctx.strokeStyle = 'rgba(45, 212, 191, 0.25)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 8]);
     ctx.beginPath();
     ctx.moveTo(CANVAS_WIDTH / 2, deckY + 10);
     ctx.lineTo(CANVAS_WIDTH / 2, deckY + deckH - 10);
@@ -487,9 +531,13 @@ export class GameRenderer {
     ctx.setLineDash([]);
 
     // --- NORTH WALL: SHIP'S WHEELHOUSE / CABIN ---
-    // Outer solid bulkhead structure
-    ctx.fillStyle = '#090d16';
-    ctx.strokeStyle = '#334155';
+    // Outer solid bulkhead structure with gradient & industrial steel rivets
+    const cabinGrad = ctx.createLinearGradient(CABIN_BOUNDS.x, CABIN_BOUNDS.y, CABIN_BOUNDS.x, CABIN_BOUNDS.y + CABIN_BOUNDS.height);
+    cabinGrad.addColorStop(0, '#1e293b');
+    cabinGrad.addColorStop(0.4, '#0f172a');
+    cabinGrad.addColorStop(1, '#090d16');
+    ctx.fillStyle = cabinGrad;
+    ctx.strokeStyle = '#475569';
     ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.roundRect(CABIN_BOUNDS.x, CABIN_BOUNDS.y, CABIN_BOUNDS.width, CABIN_BOUNDS.height, 12);
@@ -497,32 +545,52 @@ export class GameRenderer {
     ctx.stroke();
 
     // Cabin roof highlight
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(CABIN_BOUNDS.x + 8, CABIN_BOUNDS.y + 4, CABIN_BOUNDS.width - 16, 18);
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(CABIN_BOUNDS.x + 8, CABIN_BOUNDS.y + 4, CABIN_BOUNDS.width - 16, 16);
+
+    // Twin Brass Navigation Lanterns (Port Red, Starboard Green)
+    // Port Lantern (Red)
+    ctx.fillStyle = '#ef4444';
+    ctx.shadowColor = '#ef4444';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(CABIN_BOUNDS.x + 18, CABIN_BOUNDS.y + 12, 5, 0, Math.PI * 2);
+    ctx.fill();
+    // Starboard Lantern (Green)
+    ctx.fillStyle = '#22c55e';
+    ctx.shadowColor = '#22c55e';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(CABIN_BOUNDS.x + CABIN_BOUNDS.width - 18, CABIN_BOUNDS.y + 12, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0; // reset shadow
 
     // Radar scanner dome / Mast on wheelhouse roof
-    ctx.fillStyle = '#475569';
+    ctx.fillStyle = '#64748b';
     ctx.beginPath();
-    ctx.arc(CANVAS_WIDTH / 2, CABIN_BOUNDS.y + 10, 10, 0, Math.PI * 2);
+    ctx.arc(CANVAS_WIDTH / 2, CABIN_BOUNDS.y + 10, 11, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#38bdf8';
     ctx.beginPath();
-    const radarAngle = (Date.now() * 0.003) % (Math.PI * 2);
-    ctx.arc(CANVAS_WIDTH / 2, CABIN_BOUNDS.y + 10, 10, radarAngle, radarAngle + 0.8);
+    const radarAngle = (Date.now() * 0.0035) % (Math.PI * 2);
+    ctx.arc(CANVAS_WIDTH / 2, CABIN_BOUNDS.y + 10, 11, radarAngle, radarAngle + 0.75);
     ctx.lineTo(CANVAS_WIDTH / 2, CABIN_BOUNDS.y + 10);
     ctx.fill();
 
     // Wheelhouse Glowing Windows (Nav bridge view)
     const windowCount = 7;
-    const winW = 54;
-    const winH = 22;
-    const winSpacing = (CABIN_BOUNDS.width - 80) / (windowCount - 1);
+    const winW = 56;
+    const winH = 24;
+    const winSpacing = (CABIN_BOUNDS.width - 90) / (windowCount - 1);
     for (let i = 0; i < windowCount; i++) {
-      const winX = CABIN_BOUNDS.x + 40 + i * winSpacing - winW / 2;
-      const winY = CABIN_BOUNDS.y + 32;
+      const winX = CABIN_BOUNDS.x + 45 + i * winSpacing - winW / 2;
+      const winY = CABIN_BOUNDS.y + 30;
 
-      // Window glow
-      ctx.fillStyle = '#0369a1';
+      // Window glow interior
+      const winGrad = ctx.createLinearGradient(winX, winY, winX, winY + winH);
+      winGrad.addColorStop(0, '#0284c7');
+      winGrad.addColorStop(1, '#0369a1');
+      ctx.fillStyle = winGrad;
       ctx.strokeStyle = '#38bdf8';
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -530,8 +598,8 @@ export class GameRenderer {
       ctx.fill();
       ctx.stroke();
 
-      // Glass shine reflection
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      // Glass reflection glint
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(winX + 6, winY + winH - 4);
@@ -539,20 +607,54 @@ export class GameRenderer {
       ctx.stroke();
     }
 
-    // Wheelhouse name plaque
-    ctx.fillStyle = '#facc15';
+    // Wheelhouse brass nameplate
+    ctx.fillStyle = '#0f172a';
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 1.5;
+    const plateW = 240;
+    const plateH = 14;
+    ctx.beginPath();
+    ctx.roundRect(CANVAS_WIDTH / 2 - plateW / 2, CABIN_BOUNDS.y + 53, plateW, plateH, 3);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#fde047';
     ctx.font = 'bold 9px Plus Jakarta Sans';
     ctx.textAlign = 'center';
-    ctx.fillText('⚓ FRIENDSLOP CO. WHEELHOUSE (CABIN)', CANVAS_WIDTH / 2, CABIN_BOUNDS.y + 62);
+    ctx.fillText('⚓ S.S. FRIENDSLOP — TRAWLER WHEELHOUSE', CANVAS_WIDTH / 2, CABIN_BOUNDS.y + 63);
 
-    // Perimeter Casting Gunwales (Port, Starboard, Stern)
-    ctx.fillStyle = '#334155';
+    // Perimeter Casting Gunwales (Port, Starboard, Stern) with Bollards & Lifebuoys
+    ctx.fillStyle = '#475569';
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 2;
     // Port railing
-    ctx.fillRect(BOAT_BOUNDS.x + 6, DECK_BOUNDS.minY, 10, DECK_BOUNDS.maxY - DECK_BOUNDS.minY);
+    ctx.fillRect(BOAT_BOUNDS.x + 6, DECK_BOUNDS.minY, 12, DECK_BOUNDS.maxY - DECK_BOUNDS.minY);
+    ctx.strokeRect(BOAT_BOUNDS.x + 6, DECK_BOUNDS.minY, 12, DECK_BOUNDS.maxY - DECK_BOUNDS.minY);
     // Starboard railing
-    ctx.fillRect(BOAT_BOUNDS.x + BOAT_BOUNDS.width - 16, DECK_BOUNDS.minY, 10, DECK_BOUNDS.maxY - DECK_BOUNDS.minY);
+    ctx.fillRect(BOAT_BOUNDS.x + BOAT_BOUNDS.width - 18, DECK_BOUNDS.minY, 12, DECK_BOUNDS.maxY - DECK_BOUNDS.minY);
+    ctx.strokeRect(BOAT_BOUNDS.x + BOAT_BOUNDS.width - 18, DECK_BOUNDS.minY, 12, DECK_BOUNDS.maxY - DECK_BOUNDS.minY);
     // Stern railing (South)
-    ctx.fillRect(DECK_BOUNDS.minX, BOAT_BOUNDS.y + BOAT_BOUNDS.height - 18, DECK_BOUNDS.maxX - DECK_BOUNDS.minX, 10);
+    ctx.fillRect(DECK_BOUNDS.minX, BOAT_BOUNDS.y + BOAT_BOUNDS.height - 20, DECK_BOUNDS.maxX - DECK_BOUNDS.minX, 12);
+    ctx.strokeRect(DECK_BOUNDS.minX, BOAT_BOUNDS.y + BOAT_BOUNDS.height - 20, DECK_BOUNDS.maxX - DECK_BOUNDS.minX, 12);
+
+    // Red & White Lifebuoys mounted on the railings
+    const drawLifebuoy = (bx: number, by: number) => {
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(bx, by, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.arc(bx, by, 4, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    drawLifebuoy(BOAT_BOUNDS.x + 12, (DECK_BOUNDS.minY + DECK_BOUNDS.maxY) / 2);
+    drawLifebuoy(BOAT_BOUNDS.x + BOAT_BOUNDS.width - 12, (DECK_BOUNDS.minY + DECK_BOUNDS.maxY) / 2);
+    drawLifebuoy(DECK_BOUNDS.minX + 80, BOAT_BOUNDS.y + BOAT_BOUNDS.height - 14);
+    drawLifebuoy(DECK_BOUNDS.maxX - 80, BOAT_BOUNDS.y + BOAT_BOUNDS.height - 14);
   }
 
   private drawRailingPrompts(state: GameRoomState): void {
@@ -654,53 +756,108 @@ export class GameRenderer {
       ctx.fillText('DROP OR TOSS FISH HERE', station.x + station.w / 2, station.y + station.h / 2 + 12);
 
     } else if (station.type === 'cutting_board') {
-      ctx.fillStyle = '#d97706';
-      ctx.strokeStyle = '#fde047';
-      ctx.lineWidth = 2;
+      // 🔪 Butcher Block Fillet Counter
+      // Wooden block counter top
+      const woodGrad = ctx.createLinearGradient(station.x, station.y, station.x, station.y + station.h);
+      woodGrad.addColorStop(0, '#d97706');
+      woodGrad.addColorStop(0.3, '#b45309');
+      woodGrad.addColorStop(1, '#78350f');
+      ctx.fillStyle = woodGrad;
+      ctx.strokeStyle = '#fef08a';
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.roundRect(station.x, station.y, station.w, station.h, 8);
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = '#ffffff';
+      // Maple butcher block wood slats
+      ctx.strokeStyle = 'rgba(69, 26, 3, 0.4)';
+      ctx.lineWidth = 1.5;
+      for (let bx = station.x + 14; bx < station.x + station.w - 8; bx += 14) {
+        ctx.beginPath();
+        ctx.moveTo(bx, station.y + 4);
+        ctx.lineTo(bx, station.y + station.h - 4);
+        ctx.stroke();
+      }
+
+      // Inset prep mat
+      ctx.fillStyle = '#fef3c7';
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(station.x + 8, station.y + 6, station.w - 16, station.h - 18, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#451a03';
       ctx.font = 'bold 11px Plus Jakarta Sans';
       ctx.textAlign = 'center';
       ctx.fillText('FILLET 🔪', station.x + station.w / 2, station.y + station.h / 2 - 2);
+
+      // South Access Foot Mat Indicator
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.25)';
+      ctx.fillRect(station.x + 10, station.y + station.h - 4, station.w - 20, 3);
 
       if (station.heldItem && station.minigameState === 'chopping') {
         const count = station.chopCount || 0;
         ctx.fillStyle = '#fef08a';
         ctx.font = 'bold 10px Plus Jakarta Sans';
-        ctx.fillText(`CHOP: ${count}/3 (Press Action!)`, station.x + station.w / 2, station.y - 12);
+        ctx.fillText(`CHOP: ${count}/3 (Action!)`, station.x + station.w / 2, station.y - 12);
 
         for (let i = 0; i < 3; i++) {
           ctx.fillStyle = i < count ? '#22c55e' : '#475569';
           ctx.beginPath();
-          ctx.arc(station.x + 25 + i * 20, station.y + station.h - 10, 4, 0, Math.PI * 2);
+          ctx.arc(station.x + 22 + i * 14, station.y + station.h - 7, 4, 0, Math.PI * 2);
           ctx.fill();
         }
       }
 
     } else if (station.type === 'deep_fryer') {
-      ctx.fillStyle = '#dc2626';
+      // 🍳 Industrial Stainless Steel Deep Fryer
+      const steelGrad = ctx.createLinearGradient(station.x, station.y, station.x + station.w, station.y);
+      steelGrad.addColorStop(0, '#475569');
+      steelGrad.addColorStop(0.5, '#94a3b8');
+      steelGrad.addColorStop(1, '#334155');
+      ctx.fillStyle = steelGrad;
       ctx.strokeStyle = '#f87171';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.roundRect(station.x, station.y, station.w, station.h, 8);
       ctx.fill();
       ctx.stroke();
+
+      // Boiling Golden Oil Vat
+      ctx.fillStyle = '#ca8a04';
+      ctx.beginPath();
+      ctx.roundRect(station.x + 8, station.y + 6, station.w - 16, station.h - 18, 5);
+      ctx.fill();
+
+      // Animated hot oil bubbling bubbles
+      const bubbleT = Date.now() * 0.005;
+      ctx.fillStyle = '#fef08a';
+      for (let b = 0; b < 4; b++) {
+        const bx = station.x + 14 + ((b * 15 + bubbleT * 20) % (station.w - 28));
+        const by = station.y + 12 + Math.sin(bubbleT + b * 2) * 5;
+        ctx.beginPath();
+        ctx.arc(bx, by, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 11px Plus Jakarta Sans';
       ctx.textAlign = 'center';
       ctx.fillText('FRYER 🍳', station.x + station.w / 2, station.y + station.h / 2 - 2);
 
+      // South Access Foot Mat Indicator
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
+      ctx.fillRect(station.x + 10, station.y + station.h - 4, station.w - 20, 3);
+
       if (station.heldItem && station.minigameState === 'frying') {
         const heat = station.fryHeat || 0;
         const barW = station.w - 16;
         const barH = 6;
         const barX = station.x + 8;
-        const barY = station.y + station.h - 12;
+        const barY = station.y + station.h - 10;
 
         ctx.fillStyle = '#0f172a';
         ctx.fillRect(barX, barY, barW, barH);
@@ -717,88 +874,155 @@ export class GameRenderer {
       }
 
     } else if (station.type === 'soup_pot') {
-      ctx.fillStyle = '#16a34a';
-      ctx.strokeStyle = '#86efac';
-      ctx.lineWidth = 2;
+      // 🍲 Cast Iron Chowder Kettle
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.roundRect(station.x, station.y, station.w, station.h, 8);
       ctx.fill();
       ctx.stroke();
 
+      // Simmering green chowder kettle bowl
+      ctx.fillStyle = '#15803d';
+      ctx.beginPath();
+      ctx.arc(station.x + station.w / 2, station.y + station.h / 2, 22, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#86efac';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Swirling steam / bubble particles
+      const swirlT = Date.now() * 0.004;
+      ctx.fillStyle = '#bbf7d0';
+      for (let s = 0; s < 3; s++) {
+        const ang = swirlT + (s * (Math.PI * 2 / 3));
+        ctx.beginPath();
+        ctx.arc(station.x + station.w / 2 + Math.cos(ang) * 9, station.y + station.h / 2 + Math.sin(ang) * 9, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 11px Plus Jakarta Sans';
+      ctx.font = 'bold 10px Plus Jakarta Sans';
       ctx.textAlign = 'center';
-      ctx.fillText('SOUP 🍲', station.x + station.w / 2, station.y + station.h / 2 - 2);
+      ctx.fillText('SOUP 🍲', station.x + station.w / 2, station.y + station.h / 2 - 1);
+
+      // South Access Foot Mat Indicator
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.3)';
+      ctx.fillRect(station.x + 10, station.y + station.h - 4, station.w - 20, 3);
 
       if (station.heldItem && station.minigameState === 'stirring') {
         const swirls = station.stirSwirls || 0;
         ctx.fillStyle = '#86efac';
         ctx.font = 'bold 10px Plus Jakarta Sans';
-        ctx.fillText(`STIR: ${swirls}/3 (Press Action!)`, station.x + station.w / 2, station.y - 12);
+        ctx.fillText(`STIR: ${swirls}/3 (Action!)`, station.x + station.w / 2, station.y - 12);
 
         for (let i = 0; i < 3; i++) {
           ctx.fillStyle = i < swirls ? '#22c55e' : '#475569';
           ctx.beginPath();
-          ctx.arc(station.x + 25 + i * 20, station.y + station.h - 10, 4, 0, Math.PI * 2);
+          ctx.arc(station.x + 22 + i * 14, station.y + station.h - 7, 4, 0, Math.PI * 2);
           ctx.fill();
         }
       }
 
     } else if (station.type === 'rod_rack') {
-      // 🎣 Rod Storage Rack
-      ctx.fillStyle = '#78350f';
+      // 🎣 Polished Teak Rod Storage Rack
+      const rackGrad = ctx.createLinearGradient(station.x, station.y, station.x + station.w, station.y);
+      rackGrad.addColorStop(0, '#78350f');
+      rackGrad.addColorStop(0.5, '#92400e');
+      rackGrad.addColorStop(1, '#451a03');
+      ctx.fillStyle = rackGrad;
       ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.roundRect(station.x, station.y, station.w, station.h, 6);
       ctx.fill();
       ctx.stroke();
 
-      // Fishing rods resting on rack
+      // Fishing rods resting with cork grips and guide rings
       ctx.strokeStyle = '#38bdf8';
       ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.moveTo(station.x + 12, station.y + station.h - 8);
+      ctx.moveTo(station.x + 12, station.y + station.h - 10);
       ctx.lineTo(station.x + 12, station.y + 8);
-      ctx.moveTo(station.x + 28, station.y + station.h - 8);
-      ctx.lineTo(station.x + 28, station.y + 8);
+      ctx.moveTo(station.x + 30, station.y + station.h - 10);
+      ctx.lineTo(station.x + 30, station.y + 8);
       ctx.stroke();
+
+      // Cork grips
+      ctx.fillStyle = '#fde68a';
+      ctx.fillRect(station.x + 10, station.y + station.h - 22, 4, 12);
+      ctx.fillRect(station.x + 28, station.y + station.h - 22, 4, 12);
 
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 10px Plus Jakarta Sans';
       ctx.textAlign = 'center';
-      ctx.fillText('RODS 🎣', station.x + station.w / 2, station.y + station.h / 2 - 2);
+      ctx.fillText('RODS 🎣', station.x + station.w / 2, station.y + 22);
 
     } else if (station.type === 'sushi_station') {
-      ctx.fillStyle = '#581c87';
+      // 🍣 Bamboo Sushi Rolling Mat
+      ctx.fillStyle = '#3b0764';
       ctx.strokeStyle = '#c084fc';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.roundRect(station.x, station.y, station.w, station.h, 8);
       ctx.fill();
       ctx.stroke();
 
+      // Bamboo mat slats
+      ctx.fillStyle = '#fef08a';
+      ctx.fillRect(station.x + 8, station.y + 8, station.w - 16, station.h - 20);
+      ctx.strokeStyle = '#ca8a04';
+      ctx.lineWidth = 1;
+      for (let my = station.y + 12; my < station.y + station.h - 14; my += 5) {
+        ctx.beginPath();
+        ctx.moveTo(station.x + 8, my);
+        ctx.lineTo(station.x + station.w - 8, my);
+        ctx.stroke();
+      }
+
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 11px Plus Jakarta Sans';
       ctx.textAlign = 'center';
-      ctx.fillText('SUSHI 🍣', station.x + station.w / 2, station.y + station.h / 2 - 2);
+      ctx.fillText('SUSHI 🍣', station.x + station.w / 2, station.y + station.h / 2 - 1);
+
+      // South Access Foot Mat Indicator
+      ctx.fillStyle = 'rgba(192, 132, 252, 0.3)';
+      ctx.fillRect(station.x + 10, station.y + station.h - 4, station.w - 20, 3);
 
     } else if (station.type === 'trash_chute') {
-      ctx.fillStyle = '#334155';
-      ctx.strokeStyle = '#64748b';
-      ctx.lineWidth = 2;
+      // 🗑️ Heavy Steel Overboard Trash Chute with Safety Grate
+      const chuteGrad = ctx.createLinearGradient(station.x, station.y, station.x, station.y + station.h);
+      chuteGrad.addColorStop(0, '#475569');
+      chuteGrad.addColorStop(1, '#0f172a');
+      ctx.fillStyle = chuteGrad;
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.roundRect(station.x, station.y, station.w, station.h, 8);
       ctx.fill();
       ctx.stroke();
 
+      // Open dark chute interior hole leading to ocean
+      ctx.fillStyle = '#020617';
+      ctx.beginPath();
+      ctx.roundRect(station.x + 8, station.y + 6, station.w - 16, station.h - 14, 4);
+      ctx.fill();
+
+      // Steel safety bars over chute
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 2;
+      for (let gx = station.x + 18; gx < station.x + station.w - 12; gx += 16) {
+        ctx.beginPath();
+        ctx.moveTo(gx, station.y + 6);
+        ctx.lineTo(gx, station.y + station.h - 8);
+        ctx.stroke();
+      }
+
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 11px Plus Jakarta Sans';
+      ctx.font = 'bold 10px Plus Jakarta Sans';
       ctx.textAlign = 'center';
       ctx.fillText('TRASH 🗑️', station.x + station.w / 2, station.y + station.h / 2 - 2);
-      ctx.font = '9px Plus Jakarta Sans';
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillText('Discard Boots', station.x + station.w / 2, station.y + station.h / 2 + 12);
     }
 
     // Render item being processed on the station
@@ -936,6 +1160,10 @@ export class GameRenderer {
           ctx.scale(-1, 1);
         }
         spriteImg = sprites.conga;
+      } else if (player.actionTimer && player.actionTimer > 0 && sprites.actionFrames && sprites.actionFrames.length > 0) {
+        // Busy cooking / chopping / stirring action pose facing North!
+        const actionIdx = Math.floor((Date.now() / 85) % sprites.actionFrames.length);
+        spriteImg = sprites.actionFrames[actionIdx];
       } else if (player.holdingItemId) {
         // Carrying pose with arms raised overhead: animated run when moving sideways!
         if (isMoving && sprites.carryRunSide.length === 4 && (player.facing === 'left' || player.facing === 'right')) {
