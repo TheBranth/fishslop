@@ -153,21 +153,47 @@ const rodRack = initialStations.find(s => s.type === 'rod_rack')!;
 p1.x = rodRack.x + rodRack.w / 2;
 p1.y = rodRack.y + rodRack.h / 2;
 p1.hasRodEquipped = false;
+p1.hasMopEquipped = false;
 
 let pill = engine.computeContextualAction(p1);
-assert(pill?.label === 'ROD', 'Shows [ROD] action pill when standing near Rod Rack without rod');
+assert(pill?.label === 'EQUIP ROD', 'Shows [EQUIP ROD] action pill when standing near Tool Rack without tools');
 
-// Press primary action to equip
+// Press primary action to equip Rod
 engine.p1Input.actionPrimary = true;
 engine.tick();
 assert(p1.hasRodEquipped === true, 'Pressing Action equips fishing rod');
 
 pill = engine.computeContextualAction(p1);
-assert(pill?.label === 'RETURN', 'Shows [RETURN] action pill when standing near Rod Rack with rod equipped');
+assert(pill?.label === 'EQUIP MOP', 'Shows [EQUIP MOP] action pill when standing near Tool Rack with rod equipped');
+
+// Press primary action to swap to Mop
+engine.p1Input.actionPrimary = true;
+engine.tick();
+assert(p1.hasMopEquipped === true && p1.hasRodEquipped === false, 'Pressing Action swaps rod to deck mop');
+
+pill = engine.computeContextualAction(p1);
+assert(pill?.label === 'RETURN MOP', 'Shows [RETURN MOP] action pill when standing near Tool Rack with mop equipped');
+
+// Test Mop cleaning puddles
+(engine.state.deckPuddles as any) = [{
+  id: 'test_puddle_1',
+  type: 'butter',
+  x: 250,
+  y: 250,
+  radius: 20,
+  duration: 10
+}];
+p1.x = 250;
+p1.y = 250;
+engine.tick();
+assert(engine.state.deckPuddles.length === 0, 'Equipped mop instantly cleans deck puddle on contact');
+assert(p1.isSlipping === false, 'Player with mop is immune to slipping');
 
 // 3.3 Railing Casting Gated by hasRodEquipped
 // Walk to railing
-p1.x = 210; // near left railing (< DECK_BOUNDS.minX + 35)
+p1.hasRodEquipped = true;
+p1.hasMopEquipped = false;
+p1.x = 125; // near left railing (< DECK_BOUNDS.minX + 35 which is 106 + 35 = 141)
 p1.y = 270;
 
 pill = engine.computeContextualAction(p1);

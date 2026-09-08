@@ -47,10 +47,11 @@ export class MinigameController {
   private fryerState: 'ready' | 'frying' | 'done' = 'ready';
   private fryHeat: number = 0;
 
-  // 4. Soup Swirl State
+  // 4. Soup Stir & Stop State
   private soupAnglePrev: number = 0;
   private soupRotations: number = 0;
-  private soupSpeedExceeded: boolean = false;
+  private soupHeat: number = 0; // 0.0 to 1.0 (Golden Simmer Zone: 0.60 to 0.85)
+  private soupState: 'simmering' | 'boilover' | 'served' = 'simmering';
 
   // 5. Sushi 3-Step State
   private sushiStep: number = 0; // 0: Nori, 1: Rice, 2: Fish, 3: Swipe Up to Roll
@@ -181,7 +182,8 @@ export class MinigameController {
     this.onCompleteCallback = onComplete;
     this.soupRotations = 0;
     this.soupAnglePrev = 0;
-    this.soupSpeedExceeded = false;
+    this.soupHeat = 0.2;
+    this.soupState = 'simmering';
   }
 
   public startSushiMinigame(onComplete: (res: MinigameResult) => void): void {
@@ -244,6 +246,8 @@ export class MinigameController {
       this.isAimingHarpoon = true;
     } else if (this.activeGame === 'rinse') {
       this.isHoldingRinse = true;
+    } else if (this.activeGame === 'soup') {
+      this.handleSoupClick(x, y);
     }
   }
 
@@ -398,8 +402,17 @@ export class MinigameController {
     }
   }
 
-  // --- 4. Soup Swirl Logic ---
+  // --- 4. Soup Stir & Stop Logic ---
+  public updateSoup(dt: number): void {
+    if (this.activeGame !== 'soup' || this.soupState !== 'simmering') return;
+
+    // Natural slow cooling if not actively stirred
+    this.soupHeat = Math.max(0.1, this.soupHeat - dt * 0.04);
+  }
+
   private handleSoupDrag(x: number, y: number): void {
+    if (this.activeGame !== 'soup' || this.soupState !== 'simmering') return;
+
     const centerX = this.canvas.width / 2;
     const centerY = this.canvas.height / 2;
     const currentAngle = Math.atan2(y - centerY, x - centerX);
@@ -410,22 +423,59 @@ export class MinigameController {
 
     this.soupAnglePrev = currentAngle;
 
-    // Clockwise swirl progress
+    // Clockwise swirl builds heat & rotations
     if (deltaAngle > 0) {
       this.soupRotations += deltaAngle / (Math.PI * 2);
+      this.soupHeat = Math.min(1.0, this.soupHeat + (deltaAngle / (Math.PI * 2)) * 0.22);
       this.soundSystem.play('bubble');
 
-      if (this.soupRotations >= 3.0) {
+      // Boilover failure if heat reaches 100%!
+      if (this.soupHeat >= 1.0) {
+        this.soupState = 'boilover';
+        this.soundSystem.play('explosion');
+        this.finishMinigame({
+          type: 'soup',
+          success: false,
+          quality: 'burned',
+          scoreMultiplier: 0
+        });
+      }
+    } else if (deltaAngle < -0.2) {
+      // Counter-clockwise backwards un-mix cooling
+      this.soupHeat = Math.max(0.1, this.soupHeat - 0.05);
+    }
+  }
+
+  private handleSoupClick(x: number, y: number): void {
+    if (this.activeGame !== 'soup' || this.soupState !== 'simmering') return;
+
+    // Tap center lid or serve button to stop stirring and serve
+    const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
+    const dist = Math.hypot(x - centerX, y - centerY);
+
+    // If within tap range or below the kettle
+    if (dist < 80 || y > this.canvas.height * 0.7) {
+      if (this.soupHeat >= 0.60 && this.soupHeat <= 0.88) {
+        // Golden Simmer Zone!
+        this.soupState = 'served';
+        this.soundSystem.play('ding');
         this.finishMinigame({
           type: 'soup',
           success: true,
           quality: 'perfect',
           scoreMultiplier: 3.0
         });
+      } else if (this.soupHeat < 0.60) {
+        // Too cold / watery
+        this.soundSystem.play('slap');
+        this.finishMinigame({
+          type: 'soup',
+          success: true,
+          quality: 'mangled',
+          scoreMultiplier: 1.0
+        });
       }
-    } else if (deltaAngle < -0.2) {
-      // Counter-clockwise backwards un-mix sabotage!
-      this.soupRotations = Math.max(0, this.soupRotations - 0.2);
     }
   }
 
@@ -561,10 +611,130 @@ export class MinigameController {
   public renderOverlay(): void {
     if (!this.activeGame && !this.grimeActive) return;
     const ctx = this.ctx;
+    const w = this.canvas.width;
+    const h = this.canvas.height;
 
     // Draw Grime Wiper layer on top if active
     if (this.grimeActive) {
       ctx.drawImage(this.grimeMaskCanvas, 0, 0);
+      return;
+    }
+
+    // Clear minigame canvas for dedicated view
+    ctx.clearRect(0, 0, w, h);
+
+    if (this.activeGame === 'soup') {
+      // 🍲 Render Soup Kettle with swirl vortex and Heat Simmer Meter
+      const cx = w / 2;
+      const cy = h / 2 - 20;
+
+      // Kettle Body
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 110, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Broth liquid swirl
+      const brothGrad = ctx.createRadialGradient(cx, cy, 10, cx, cy, 100);
+      brothGrad.addColorStop(0, '#fde047');
+      brothGrad.addColorStop(0.6, '#b45309');
+      brothGrad.addColorStop(1, '#451a03');
+      ctx.fillStyle = brothGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 98, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Swirl vortex spirals
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let a = 0; a < Math.PI * 4; a += 0.2) {
+        const r = (a / (Math.PI * 4)) * 80;
+        const sa = a + (this.soupRotations * Math.PI * 2);
+        const sx = cx + Math.cos(sa) * r;
+        const sy = cy + Math.sin(sa) * r;
+        if (a === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      }
+      ctx.stroke();
+
+      // Simmer Heat Gauge at bottom
+      const barX = 50;
+      const barY = h - 65;
+      const barW = w - 100;
+      const barH = 18;
+
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(barX, barY, barW, barH);
+
+      // Golden Simmer Sweet Spot (60% to 88%)
+      ctx.fillStyle = 'rgba(34, 197, 94, 0.45)';
+      ctx.fillRect(barX + barW * 0.60, barY, barW * 0.28, barH);
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(barX + barW * 0.60, barY, barW * 0.28, barH);
+
+      // Live Heat Fill
+      const heatFill = Math.min(1.0, this.soupHeat);
+      const heatGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      heatGrad.addColorStop(0, '#38bdf8');
+      heatGrad.addColorStop(0.6, '#22c55e');
+      heatGrad.addColorStop(0.85, '#f59e0b');
+      heatGrad.addColorStop(1.0, '#ef4444');
+      ctx.fillStyle = heatGrad;
+      ctx.fillRect(barX, barY, barW * heatFill, barH);
+
+      // Labels
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px Plus Jakarta Sans';
+      ctx.textAlign = 'center';
+      const inGolden = this.soupHeat >= 0.60 && this.soupHeat <= 0.88;
+      const labelText = inGolden 
+        ? '✨ SIMMERING PERFECTLY! TAP TO SERVE! ✨' 
+        : this.soupHeat >= 0.88 
+          ? '🚨 DANGER! BOILING OVER! STOP SWIRLING!' 
+          : '🔄 SWIRL CLOCKWISE TO HEAT UP BROTH';
+      ctx.fillText(labelText, cx, barY - 10);
+
+    } else if (this.activeGame === 'rinse') {
+      // 🧼 Wash Basin Scrubbing View
+      const cx = w / 2;
+      const cy = h / 2;
+
+      ctx.fillStyle = '#0369a1';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 110, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Soap Bubbles
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      for (let b = 0; b < 6; b++) {
+        const bx = cx + Math.sin(Date.now() * 0.003 + b) * 50;
+        const by = cy + Math.cos(Date.now() * 0.004 + b * 2) * 50;
+        ctx.beginPath();
+        ctx.arc(bx, by, 12, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 14px Plus Jakarta Sans';
+      ctx.textAlign = 'center';
+      ctx.fillText('🧼 HOLD / TAP TO SCRUB CLEAN!', cx, cy + 5);
+
+      // Progress bar
+      const barX = 50;
+      const barY = h - 60;
+      const barW = w - 100;
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(barX, barY, barW, 14);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(barX, barY, barW * this.rinseProgress, 14);
     }
   }
 }

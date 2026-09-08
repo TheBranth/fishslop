@@ -44,6 +44,24 @@ export const DREDGED_CRATES_POOL: DredgedCrate[] = [
     description: 'Stirring Swirl minigame. Boils hard-shell turtles into 3.0x Seafood Chowder.',
     stationType: 'soup_pot'
   },
+  {
+    id: 'crate_rinse_basin',
+    name: 'Sanitary Wash Basin',
+    emoji: '🧼',
+    category: 'station',
+    cost: 180,
+    description: 'Double Duty: Cleans squid ink off TV camera and scrubs soiled fish for +30% sanitary value.',
+    stationType: 'rinse_station'
+  },
+  {
+    id: 'crate_sushi_station',
+    name: 'Bamboo Sushi Mat',
+    emoji: '🍣',
+    category: 'station',
+    cost: 300,
+    description: 'Rolling minigame. Wraps sliced fillets into 4.0x luxury Nigiri and Dragon rolls.',
+    stationType: 'sushi_station'
+  },
 
   // Passive Deck Equipment & Player Perks
   {

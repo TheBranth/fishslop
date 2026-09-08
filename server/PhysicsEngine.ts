@@ -32,12 +32,21 @@ export class PhysicsEngine {
         }
       }
 
-      // Check Deck Puddles for Slipping & Radioactive Slowness
+      // Check Deck Puddles for Slipping, Radioactive Slowness or Mop Cleaning
       let standingInPuddle = false;
       let standingInSlime = false;
       if (room.deckPuddles) {
-        room.deckPuddles.forEach(puddle => {
-          if (Math.hypot(player.x - puddle.x, player.y - puddle.y) < puddle.radius + 8) {
+        for (let pudIdx = room.deckPuddles.length - 1; pudIdx >= 0; pudIdx--) {
+          const puddle = room.deckPuddles[pudIdx];
+          if (Math.hypot(player.x - puddle.x, player.y - puddle.y) < puddle.radius + 16) {
+            if (player.hasMopEquipped) {
+              room.deckPuddles.splice(pudIdx, 1);
+              onEvent?.('sfx', 'drop');
+              onEvent?.('popup', { text: '✨ CLEANED!', color: '#38bdf8', x: player.x, y: player.y - 20 });
+              onEvent?.('feed', { text: `🧹 ${player.name} mopped up deck ${puddle.type}!`, type: 'info' });
+              continue;
+            }
+
             if (puddle.type === 'butter') {
               standingInPuddle = true;
               player.isSlipping = true;
@@ -47,9 +56,9 @@ export class PhysicsEngine {
               player.slowTimer = 2.5;
             }
           }
-        });
+        }
       }
-      if (!standingInPuddle) {
+      if (!standingInPuddle || player.hasMopEquipped) {
         player.isSlipping = false;
       }
       if (player.slowTimer && player.slowTimer > 0) {

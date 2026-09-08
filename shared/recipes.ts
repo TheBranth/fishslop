@@ -9,6 +9,7 @@ export const MODIFIER_MULTIPLIERS: Record<ItemModifier, number> = {
   boiled: 2.0,       // Soup Kettle (+100%)
   rolled: 2.2,       // Sushi Rolling Mat (+120%)
   soiled: 0.5,       // Dropped in slime/water (-50%)
+  clean: 1.3,        // Scrubbed at Rinse Station (+30% Sanitary Premium)
   electrified: 1.0,  // Charged
   burned: 0.2        // Burned to crisp (-80%)
 };
@@ -33,6 +34,9 @@ export function computeProcessedItemOutcome(
   // Merge and deduplicate modifiers
   const modSet = new Set<ItemModifier>(currentModifiers);
   modSet.delete('raw');
+  if (newModifier === 'clean') {
+    modSet.delete('soiled');
+  }
   modSet.add(newModifier);
   const updatedModifiers = Array.from(modSet);
 
@@ -118,6 +122,11 @@ export function computeProcessedItemOutcome(
     name = `Whole ${speciesBaseName} Temaki`;
     emoji = '🍙';
     itemType = 'cooked_food';
+  }
+  else if (modSet.has('clean')) {
+    name = `Pristine Washed ${speciesBaseName}`;
+    emoji = '🧼';
+    itemType = 'fish';
   }
 
   const finalValue = Math.round(basePrice * totalMultiplier);
@@ -207,6 +216,7 @@ export function validateStationInteraction(stationType: StationType, item: Entit
   else if (stationType === 'deep_fryer') targetModifier = 'fried';
   else if (stationType === 'soup_pot') targetModifier = 'boiled';
   else if (stationType === 'sushi_station') targetModifier = 'rolled';
+  else if (stationType === 'rinse_station') targetModifier = 'clean';
 
   if (!targetModifier) {
     return { isMismatch: true, reason: '⚠️ Cannot process at this station.' };

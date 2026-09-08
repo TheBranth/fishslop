@@ -5,7 +5,7 @@ import { DredgedCrate } from './upgrades';
 export type PlayerColor = 'blue' | 'yellow' | 'red' | 'green';
 export type StationType = 'cooler' | 'cutting_board' | 'deep_fryer' | 'soup_pot' | 'rod_rack' | 'trash_chute' | 'sushi_station' | 'rinse_station';
 export type FishTier = 'T1' | 'T2' | 'T3' | 'T4' | 'Common' | 'Uncommon' | 'Hazard' | 'Boss' | 'Trash';
-export type ItemModifier = 'raw' | 'sliced' | 'fried' | 'boiled' | 'rolled' | 'soiled' | 'electrified' | 'burned';
+export type ItemModifier = 'raw' | 'sliced' | 'fried' | 'boiled' | 'rolled' | 'soiled' | 'clean' | 'electrified' | 'burned';
 
 export interface ContextualAction {
   label: string;
@@ -45,7 +45,8 @@ export interface PlayerState {
   privateCash: number;
   activeBounty: SecretBounty | null;
   contextualAction: ContextualAction | null;
-  hasRodEquipped: boolean; // Must grab rod from Rod Rack to cast at railings!
+  hasRodEquipped: boolean; // Must grab rod from Tool Rack to cast at railings!
+  hasMopEquipped?: boolean; // Grab mop from Tool Rack to clean deck puddles!
   // Fishing State
   isFishing: boolean;
   fishingState?: 'waiting_bite' | 'biting' | 'reeling';
@@ -160,11 +161,12 @@ export interface WorkStation {
   isProcessing: boolean;
   heldItem: EntityItem | null;
   socketIndex?: number | null; // 0 to 3 for the 4 modular perimeter sockets
-  minigameState?: 'idle' | 'chopping' | 'frying' | 'stirring' | 'burned';
+  minigameState?: 'idle' | 'chopping' | 'frying' | 'stirring' | 'washing' | 'burned';
   chopCount?: number;
   chopTarget?: number;
   fryHeat?: number;
   stirSwirls?: number;
+  rinseCount?: number;
   isOnFire?: boolean;
   fireTimer?: number;
   // Slapstick & Mismatch Penalty States

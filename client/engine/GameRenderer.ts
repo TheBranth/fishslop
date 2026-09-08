@@ -926,7 +926,7 @@ export class GameRenderer {
       }
 
     } else if (station.type === 'rod_rack') {
-      // 🎣 Polished Teak Rod Storage Rack
+      // 🎣 & 🧹 Dual Utility Tool Rack (Rods & Mops)
       const rackGrad = ctx.createLinearGradient(station.x, station.y, station.x + station.w, station.y);
       rackGrad.addColorStop(0, '#78350f');
       rackGrad.addColorStop(0.5, '#92400e');
@@ -939,25 +939,86 @@ export class GameRenderer {
       ctx.fill();
       ctx.stroke();
 
-      // Fishing rods resting with cork grips and guide rings
+      // Fishing rod on left
       ctx.strokeStyle = '#38bdf8';
       ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.moveTo(station.x + 12, station.y + station.h - 10);
-      ctx.lineTo(station.x + 12, station.y + 8);
-      ctx.moveTo(station.x + 30, station.y + station.h - 10);
-      ctx.lineTo(station.x + 30, station.y + 8);
+      ctx.moveTo(station.x + 14, station.y + station.h - 10);
+      ctx.lineTo(station.x + 14, station.y + 8);
       ctx.stroke();
 
-      // Cork grips
+      // Cork grip
       ctx.fillStyle = '#fde68a';
-      ctx.fillRect(station.x + 10, station.y + station.h - 22, 4, 12);
-      ctx.fillRect(station.x + 28, station.y + station.h - 22, 4, 12);
+      ctx.fillRect(station.x + 12, station.y + station.h - 22, 4, 12);
+
+      // Deck Mop with yellow bucket on right
+      // Mop handle
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(station.x + 38, station.y + station.h - 14);
+      ctx.lineTo(station.x + 38, station.y + 6);
+      ctx.stroke();
+
+      // Mop string head
+      ctx.fillStyle = '#f1f5f9';
+      ctx.fillRect(station.x + 34, station.y + station.h - 24, 8, 10);
+
+      // Yellow mop bucket
+      ctx.fillStyle = '#eab308';
+      ctx.strokeStyle = '#ca8a04';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(station.x + 30, station.y + station.h - 18, 16, 14, 3);
+      ctx.fill();
+      ctx.stroke();
 
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 10px Plus Jakarta Sans';
+      ctx.font = 'bold 9px Plus Jakarta Sans';
       ctx.textAlign = 'center';
-      ctx.fillText('RODS 🎣', station.x + station.w / 2, station.y + 22);
+      ctx.fillText('TOOLS 🎣🧹', station.x + station.w / 2, station.y + 20);
+
+    } else if (station.type === 'rinse_station') {
+      // 🧼 Sanitary Wash Basin Counter
+      const basinGrad = ctx.createLinearGradient(station.x, station.y, station.x, station.y + station.h);
+      basinGrad.addColorStop(0, '#0284c7');
+      basinGrad.addColorStop(1, '#0369a1');
+      ctx.fillStyle = basinGrad;
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(station.x, station.y, station.w, station.h, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      // Ceramic White Basin Bowl with bubbling water
+      ctx.fillStyle = '#f8fafc';
+      ctx.beginPath();
+      ctx.ellipse(station.x + station.w / 2, station.y + station.h / 2 - 2, station.w / 2 - 12, station.h / 2 - 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Fresh clear water inside
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.65)';
+      ctx.beginPath();
+      ctx.ellipse(station.x + station.w / 2, station.y + station.h / 2 - 2, station.w / 2 - 16, station.h / 2 - 13, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Chrome faucet tap
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(station.x + station.w / 2, station.y + 6);
+      ctx.lineTo(station.x + station.w / 2, station.y + 16);
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 9px Plus Jakarta Sans';
+      ctx.textAlign = 'center';
+      ctx.fillText('WASH 🧼', station.x + station.w / 2, station.y + station.h - 6);
+
+      // South Access Foot Mat Indicator
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.3)';
+      ctx.fillRect(station.x + 10, station.y + station.h - 3, station.w - 20, 3);
 
     } else if (station.type === 'sushi_station') {
       // 🍣 Bamboo Sushi Rolling Mat
@@ -1253,8 +1314,22 @@ export class GameRenderer {
       }
     }
 
-    // 8.5 Slung Fishing Rod on Back (when hasRodEquipped)
-    if (player.hasRodEquipped && !player.isFishing) {
+    // 8.5 Slung Tool on Back (Fishing Rod or Deck Mop)
+    if (player.hasMopEquipped) {
+      // Slung Deck Mop
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-10, 8 - bobY);
+      ctx.lineTo(14, -28 - bobY);
+      ctx.stroke();
+      // Mop string head
+      ctx.fillStyle = '#f8fafc';
+      ctx.beginPath();
+      ctx.arc(14, -28 - bobY, 6, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (player.hasRodEquipped && !player.isFishing) {
+      // Slung Fishing Rod
       ctx.strokeStyle = '#38bdf8';
       ctx.lineWidth = 2.5;
       ctx.beginPath();

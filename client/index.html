@@ -149,24 +149,16 @@
                 </div>
             </div>
 
-            <!-- Ergonomic Keyboard & Mouse Guide Banner -->
+            <!-- Primary Phone Controller / TV Screen Notice -->
             <div class="bg-slate-900/90 border-t border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between text-xs gap-3 shrink-0">
-                <div class="flex items-center space-x-4">
-                    <div>
-                        <span class="text-sky-400 font-bold">P1 (Blue):</span> 
-                        <kbd class="bg-slate-800 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-mono">WASD</kbd> Move 
-                        <kbd class="bg-slate-800 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-mono">SPACE / J</kbd> Cast/Reel/Cook 
-                        <kbd class="bg-slate-800 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-mono">K</kbd> Throw 
-                        <kbd class="bg-slate-800 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700 font-mono">L</kbd> Slap
-                    </div>
-                    <div class="hidden md:block text-slate-600">|</div>
-                    <div>
-                        <span class="text-amber-400 font-bold">P2 (Gold):</span> 
-                        <kbd class="bg-slate-800 text-teal-300 px-1.5 py-0.5 rounded border border-slate-700 font-mono">ARROWS</kbd> Move 
-                        <kbd class="bg-slate-800 text-teal-300 px-1.5 py-0.5 rounded border border-slate-700 font-mono">ENTER / N</kbd> Cast/Reel/Cook 
-                        <kbd class="bg-slate-800 text-teal-300 px-1.5 py-0.5 rounded border border-slate-700 font-mono">M</kbd> Throw 
-                        <kbd class="bg-slate-800 text-teal-300 px-1.5 py-0.5 rounded border border-slate-700 font-mono">,</kbd> Slap
-                    </div>
+                <div class="flex items-center space-x-3">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-bold text-[11px] border border-teal-500/40">
+                        <i class="fa-solid fa-mobile-screen mr-1.5 text-amber-300"></i>Primary Controller: Phone / Mobile
+                    </span>
+                    <span class="text-slate-400 text-[11px]">Scan QR code on title screen or tap <strong class="text-white cursor-pointer hover:underline" onclick="window.gameApp.togglePhoneModal()">Connect Phone</strong> to join.</span>
+                </div>
+                <div class="text-[10px] text-slate-600 font-mono flex items-center space-x-2">
+                    <span class="bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">Debug Keyboard: P1 (WASD+J/K) | P2 (Arrows+N/M)</span>
                 </div>
             </div>
         </div>

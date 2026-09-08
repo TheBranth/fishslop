@@ -326,11 +326,22 @@ export class LocalGameEngine {
         if (p.stunTimer <= 0) p.isStunned = false;
       }
 
-      // Check Deck Puddles for Slipping & Radioactive Slowness
+      // Check Deck Puddles for Slipping, Radioactive Slowness or Mop Cleaning
       let standingInPuddle = false;
       let standingInSlime = false;
-      state.deckPuddles.forEach(puddle => {
-        if (Math.hypot(p.x - puddle.x, p.y - puddle.y) < puddle.radius + 8) {
+
+      for (let pudIdx = state.deckPuddles.length - 1; pudIdx >= 0; pudIdx--) {
+        const puddle = state.deckPuddles[pudIdx];
+        if (Math.hypot(p.x - puddle.x, p.y - puddle.y) < puddle.radius + 16) {
+          if (p.hasMopEquipped) {
+            // Mop instantly cleans the puddle!
+            state.deckPuddles.splice(pudIdx, 1);
+            this.onEvent?.('sfx', 'drop');
+            this.onEvent?.('popup', '', { text: '✨ CLEANED!', color: '#38bdf8', x: p.x, y: p.y - 20 });
+            this.addFeedMessage(`🧹 ${p.name} mopped up deck ${puddle.type}!`, 'info');
+            continue;
+          }
+
           if (puddle.type === 'butter') {
             standingInPuddle = true;
             p.isSlipping = true;
@@ -340,8 +351,8 @@ export class LocalGameEngine {
             p.slowTimer = 2.5;
           }
         }
-      });
-      if (!standingInPuddle) {
+      }
+      if (!standingInPuddle || p.hasMopEquipped) {
         p.isSlipping = false;
       }
       if (p.slowTimer && p.slowTimer > 0) {
@@ -814,6 +825,29 @@ export class LocalGameEngine {
           this.checkBounties('burn_dish', {});
         }
       }
+
+      // Soup Pot Stir & Stop: Simmering heat buildup & boilover risk
+      if (station.type === 'soup_pot' && station.heldItem && station.minigameState === 'stirring') {
+        // Temperature rises while stirring
+        station.fryHeat = (station.fryHeat || 0) + (1 / 240);
+        if (station.fryHeat >= 1.0) {
+          station.minigameState = 'burned';
+          station.fryHeat = 0;
+          this.onEvent?.('sfx', 'explosion');
+          this.onEvent?.('popup', '', { text: '🍲 BOILOVER!', color: '#ef4444', x: station.x + station.w / 2, y: station.y - 20 });
+          this.addFeedMessage(`🍲 SOUP BOILOVER! Kettle boiled over and spilled onto deck!`, 'hazard');
+
+          // Spill soup grease puddle onto deck
+          this.state.deckPuddles.push({
+            id: `puddle_boil_${Date.now()}`,
+            type: 'butter',
+            x: station.x + 20,
+            y: station.y + 45,
+            radius: 26,
+            duration: 12.0
+          });
+        }
+      }
     });
   }
 
@@ -864,15 +898,25 @@ export class LocalGameEngine {
 
     // 3. Hands Empty: Proximity Affordances
     if (!p.holdingItemId) {
-      // Priority A: Rod Storage Rack (Equip / Return Rod)
-      const rodRack = this.state.stations.find(s => s.type === 'rod_rack');
-      if (rodRack) {
-        const dist = Math.hypot(rodRack.x + rodRack.w / 2 - p.x, rodRack.y + rodRack.h / 2 - p.y);
-        if (dist < 42) {
-          return p.hasRodEquipped 
-            ? { label: 'RETURN', colorHex: '#94a3b8' }
-            : { label: 'ROD', colorHex: '#38bdf8' };
+      // Priority A: Tool Rack (Equip Rod / Equip Mop / Return Tool)
+      const toolRack = this.state.stations.find(s => s.type === 'rod_rack');
+      if (toolRack) {
+        const dist = Math.hypot(toolRack.x + toolRack.w / 2 - p.x, toolRack.y + toolRack.h / 2 - p.y);
+        if (dist < 46) {
+          if (p.hasMopEquipped) {
+            return { label: 'RETURN MOP', colorHex: '#94a3b8' };
+          }
+          if (p.hasRodEquipped) {
+            return { label: 'EQUIP MOP', colorHex: '#38bdf8' };
+          }
+          return { label: 'EQUIP ROD', colorHex: '#38bdf8' };
         }
+      }
+
+      // Priority A.2: Wash Basin Screen Wipe (Clean ink off camera)
+      const rinseStation = this.state.stations.find(s => s.type === 'rinse_station' && this.isPlayerAtStationSouth(p, s));
+      if (rinseStation && this.state.screenShaders.inkSplatters.length > 0) {
+        return { label: 'WIPE SCREEN', colorHex: '#c084fc' };
       }
 
       // Priority B: Floor item in range
@@ -980,22 +1024,45 @@ export class LocalGameEngine {
       return;
     }
 
-    // 2. Rod Storage Rack Interaction (Grab / Return Fishing Rod)
-    const rodRack = this.state.stations.find(s => s.type === 'rod_rack');
-    if (rodRack && !p.holdingItemId) {
-      const dist = Math.hypot(rodRack.x + rodRack.w / 2 - p.x, rodRack.y + rodRack.h / 2 - p.y);
-      if (dist < 42) {
-        p.hasRodEquipped = !p.hasRodEquipped;
-        this.onEvent?.('sfx', 'pickup');
-        if (p.hasRodEquipped) {
+    // 2. Tool Storage Rack Interaction (Grab / Swap Fishing Rod & Deck Mop)
+    const toolRack = this.state.stations.find(s => s.type === 'rod_rack');
+    if (toolRack && !p.holdingItemId) {
+      const dist = Math.hypot(toolRack.x + toolRack.w / 2 - p.x, toolRack.y + toolRack.h / 2 - p.y);
+      if (dist < 46) {
+        if (!p.hasRodEquipped && !p.hasMopEquipped) {
+          // Equip Rod first
+          p.hasRodEquipped = true;
+          this.onEvent?.('sfx', 'pickup');
           this.onEvent?.('popup', '', { text: '🎣 ROD EQUIPPED!', color: '#38bdf8', x: p.x, y: p.y - 25 });
           this.addFeedMessage(`🎣 ${p.name} equipped a fishing rod! Walk to the railing to cast.`, 'info');
+        } else if (p.hasRodEquipped) {
+          // Swap Rod for Mop
+          p.hasRodEquipped = false;
+          p.hasMopEquipped = true;
+          this.onEvent?.('sfx', 'pickup');
+          this.onEvent?.('popup', '', { text: '🧹 MOP EQUIPPED!', color: '#38bdf8', x: p.x, y: p.y - 25 });
+          this.addFeedMessage(`🧹 ${p.name} equipped the deck mop! Walk over butter and slime puddles to clean them.`, 'info');
         } else {
-          this.onEvent?.('popup', '', { text: '🎣 ROD RETURNED', color: '#94a3b8', x: p.x, y: p.y - 25 });
-          this.addFeedMessage(`🎣 ${p.name} returned the fishing rod to the rack.`, 'info');
+          // Return Mop
+          p.hasMopEquipped = false;
+          this.onEvent?.('sfx', 'pickup');
+          this.onEvent?.('popup', '', { text: '🧹 MOP RETURNED', color: '#94a3b8', x: p.x, y: p.y - 25 });
+          this.addFeedMessage(`🧹 ${p.name} returned the tool to the rack.`, 'info');
         }
         return;
       }
+    }
+
+    // 2.5 Wash Basin Screen Wipe (Clean ink off camera when empty handed)
+    const nearRinse = this.state.stations.find(s => s.type === 'rinse_station' && this.isPlayerAtStationSouth(p, s));
+    if (nearRinse && !p.holdingItemId && this.state.screenShaders.inkSplatters.length > 0) {
+      this.state.screenShaders.inkSplatters = [];
+      p.facing = 'up';
+      p.actionTimer = 0.8;
+      this.onEvent?.('sfx', 'drop');
+      this.onEvent?.('popup', '', { text: '🧽 CAMERA SQUEEGEED!', color: '#38bdf8', x: nearRinse.x + nearRinse.w / 2, y: nearRinse.y - 20 });
+      this.addFeedMessage(`🧽 ${p.name} used the wash basin to squeegee all ink off the camera lens!`, 'score');
+      return;
     }
 
     // 3. Active Minigame Progression on Stations (Only usable from South side)
@@ -1065,15 +1132,39 @@ export class LocalGameEngine {
         return;
       }
 
-      // Soup Kettle Stir
+      // Soup Kettle Stir & Stop Simmer
       if (nearStation.type === 'soup_pot' && nearStation.heldItem && nearStation.minigameState === 'stirring') {
-        nearStation.stirSwirls = (nearStation.stirSwirls || 0) + 1;
+        const heat = nearStation.fryHeat || 0;
+        // If heat is within golden simmer zone (0.60 to 0.88), complete station!
+        if (heat >= 0.60 && heat <= 0.88) {
+          this.completeStation(nearStation, p);
+          this.addFeedMessage(`🍲 GOLDEN SIMMER PERFECTION! Rich seafood broth completed ($${nearStation.heldItem.value})!`, 'score');
+          return;
+        } else if (heat < 0.60) {
+          nearStation.stirSwirls = (nearStation.stirSwirls || 0) + 1;
+          nearStation.fryHeat = Math.min(0.98, heat + 0.18);
+          p.actionTimer = 0.8;
+          this.onEvent?.('sfx', 'bubble');
+          this.addFeedMessage(`🍲 STIRRING BROTH! Heat: ${Math.round(nearStation.fryHeat * 100)}% (Target: 60-88%)`, 'info');
+          return;
+        } else {
+          // Dangerous boilover danger! Stop stirring!
+          this.addFeedMessage(`⚠️ BOILING OVER (${Math.round(heat * 100)}%)! Stop stirring and let simmer!`, 'hazard');
+          return;
+        }
+      }
+
+      // Rinse Station / Wash Basin Scrubbing Minigame (Wash fish)
+      if (nearStation.type === 'rinse_station' && nearStation.heldItem && nearStation.minigameState === 'washing') {
+        nearStation.rinseCount = (nearStation.rinseCount || 0) + 1;
         p.actionTimer = 0.8;
         this.onEvent?.('sfx', 'bubble');
-        this.addFeedMessage(`🍲 STIRRING BROTH! (${nearStation.stirSwirls}/3)`, 'info');
+        this.addFeedMessage(`🧼 SCRUB & RINSE! (${nearStation.rinseCount}/2)`, 'info');
 
-        if (nearStation.stirSwirls >= 3) {
+        if (nearStation.rinseCount >= 2) {
+          nearStation.heldItem.isSoiled = false;
           this.completeStation(nearStation, p);
+          this.addFeedMessage(`✨ SANITARY SPECIMEN! ${nearStation.heldItem.name} scrubbed sparkling clean (+30% bonus)!`, 'score');
         }
         return;
       }
@@ -1152,6 +1243,11 @@ export class LocalGameEngine {
               nearStation.minigameState = 'chopping';
               this.onEvent?.('sfx', 'pickup');
               this.addFeedMessage(`🍣 Press ACTION to roll ${held.name} into Nori!`, 'info');
+            } else if (nearStation.type === 'rinse_station') {
+              nearStation.minigameState = 'washing';
+              nearStation.rinseCount = 0;
+              this.onEvent?.('sfx', 'bubble');
+              this.addFeedMessage(`🧼 Press ACTION 2 times to scrub ${held.name}!`, 'info');
             }
             return;
           }

@@ -212,7 +212,7 @@ export const ROGUELITE_LEVELS: RogueliteLevel[] = [
 
 // Fixed Starter Stations (Central Hold + Deck Utility)
 export const FIXED_STARTER_STATIONS = [
-  { type: 'rod_rack' as StationType, name: 'Rod Storage Rack', x: 135, y: 155, w: 42, h: 70 },
+  { type: 'rod_rack' as StationType, name: 'Tool Rack (Rods & Mops)', x: 135, y: 155, w: 54, h: 70 },
   { type: 'cooler' as StationType, name: 'Fish Hold (Cargo Hatch)', x: CARGO_HOLD_BOUNDS.x, y: CARGO_HOLD_BOUNDS.y, w: CARGO_HOLD_BOUNDS.width, h: CARGO_HOLD_BOUNDS.height },
   { type: 'trash_chute' as StationType, name: 'Overboard Trash Chute', x: 440, y: 445, w: 80, h: 36 }
 ];

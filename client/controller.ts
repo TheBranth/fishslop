@@ -48,6 +48,31 @@ export class PhoneControllerApp {
     this.setupNetworkBridge();
     this.parseURLParams();
     this.startInputLoop();
+    this.startMinigameRenderLoop();
+  }
+
+  private startMinigameRenderLoop(): void {
+    let lastTime = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min(0.1, (now - lastTime) / 1000);
+      lastTime = now;
+
+      if (this.minigameController.activeGame) {
+        if (this.minigameController.activeGame === 'fillet') {
+          this.minigameController.updateFillet(dt);
+        } else if (this.minigameController.activeGame === 'fryer') {
+          this.minigameController.updateFryer(dt);
+        } else if (this.minigameController.activeGame === 'soup') {
+          this.minigameController.updateSoup(dt);
+        } else if (this.minigameController.activeGame === 'rinse') {
+          this.minigameController.updateRinse(dt);
+        }
+        this.minigameController.renderOverlay();
+      }
+
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
 
   private setupNetworkBridge(): void {
@@ -534,7 +559,7 @@ export class PhoneControllerApp {
     if (stationType === 'soup_pot') {
       if (emoji) emoji.textContent = '🍲';
       if (title) title.textContent = 'Broth Soup Kettle';
-      if (instruct) instruct.textContent = 'Swirl your thumb clockwise in 3 full rotations!';
+      if (instruct) instruct.textContent = 'Swirl clockwise to heat, then TAP to stop in the Green Simmer Zone!';
       this.minigameController.startSoupMinigame((res) => this.finishMinigame(res));
     } else if (stationType === 'cutting_board') {
       if (emoji) emoji.textContent = '🔪';
@@ -546,6 +571,16 @@ export class PhoneControllerApp {
       if (title) title.textContent = 'Deep Fryer Station';
       if (instruct) instruct.textContent = 'Tap DROP, then PULL in the Golden Zone!';
       this.minigameController.startFryerMinigame((res) => this.finishMinigame(res));
+    } else if (stationType === 'rinse_station') {
+      if (emoji) emoji.textContent = '🧼';
+      if (title) title.textContent = 'Sanitary Wash Basin';
+      if (instruct) instruct.textContent = 'Press and hold to scrub fish sparkling clean!';
+      this.minigameController.startRinseMinigame((res) => this.finishMinigame(res));
+    } else if (stationType === 'sushi_station') {
+      if (emoji) emoji.textContent = '🍣';
+      if (title) title.textContent = 'Bamboo Sushi Mat';
+      if (instruct) instruct.textContent = 'Tap Nori -> Rice -> Fish -> Roll to complete!';
+      this.minigameController.startSushiMinigame((res) => this.finishMinigame(res));
     }
 
     modal?.classList.remove('hidden');
