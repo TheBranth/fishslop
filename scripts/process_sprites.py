@@ -73,6 +73,29 @@ def defringe_and_crop(img: Image.Image, target_size=(256, 256), padding=16) -> I
         return canvas
     return cleaned
 
+def recolor_fisherman(in_img: Image.Image, target_color: str) -> Image.Image:
+    """Accurately shifts yellow coat & shadows to blue, red, or green while protecting beard, face, and boots."""
+    arr = np.array(in_img, dtype=float)
+    r, g, b, a = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2], arr[:, :, 3]
+    
+    coat_mask = (a > 50) & (r > 110) & (g > 70) & (b < 85) & (r - g < 95) & (g - b > 40) & (g / np.maximum(r, 1) > 0.52)
+    lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
+    
+    if target_color == 'blue':
+        arr[coat_mask, 0] = lum[coat_mask] * 65
+        arr[coat_mask, 1] = 60 + lum[coat_mask] * 145
+        arr[coat_mask, 2] = 110 + lum[coat_mask] * 140
+    elif target_color == 'red':
+        arr[coat_mask, 0] = 110 + lum[coat_mask] * 140
+        arr[coat_mask, 1] = lum[coat_mask] * 75
+        arr[coat_mask, 2] = lum[coat_mask] * 75
+    elif target_color == 'green':
+        arr[coat_mask, 0] = lum[coat_mask] * 65
+        arr[coat_mask, 1] = 70 + lum[coat_mask] * 160
+        arr[coat_mask, 2] = lum[coat_mask] * 105
+        
+    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+
 def process_sprite(input_path: str, output_path: str, target_size=(256, 256), padding=16):
     """Processes a single raw generation file into a clean transparent pixel sprite."""
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
