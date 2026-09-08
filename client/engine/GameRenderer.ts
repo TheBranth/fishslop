@@ -1,7 +1,14 @@
 // 60 FPS HTML5 Canvas 2D/2.5D Renderer with Level Atmospheric Shaders & Kraken Boss Visuals
 
 import { GameRoomState, PlayerState, EntityItem, WorkStation, OceanFishShadow } from '../../shared/types';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, BOAT_BOUNDS, DECK_BOUNDS } from '../../shared/constants';
+import { 
+  CANVAS_WIDTH, 
+  CANVAS_HEIGHT, 
+  BOAT_BOUNDS, 
+  DECK_BOUNDS,
+  CABIN_BOUNDS,
+  CARGO_HOLD_BOUNDS
+} from '../../shared/constants';
 
 export interface FloatingComicPopup {
   id: string;
@@ -460,6 +467,7 @@ export class GameRenderer {
     ctx.roundRect(deckX, deckY, deckW, deckH, BOAT_BOUNDS.radius - 8);
     ctx.fill();
 
+    // Deck wood plank lines
     ctx.strokeStyle = 'rgba(15, 23, 42, 0.65)';
     ctx.lineWidth = 2;
     for (let y = deckY + 25; y < deckY + deckH; y += 28) {
@@ -469,6 +477,7 @@ export class GameRenderer {
       ctx.stroke();
     }
 
+    // Center dividing keel line
     ctx.strokeStyle = 'rgba(45, 212, 191, 0.18)';
     ctx.setLineDash([6, 6]);
     ctx.beginPath();
@@ -476,16 +485,85 @@ export class GameRenderer {
     ctx.lineTo(CANVAS_WIDTH / 2, deckY + deckH - 10);
     ctx.stroke();
     ctx.setLineDash([]);
+
+    // --- NORTH WALL: SHIP'S WHEELHOUSE / CABIN ---
+    // Outer solid bulkhead structure
+    ctx.fillStyle = '#090d16';
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.roundRect(CABIN_BOUNDS.x, CABIN_BOUNDS.y, CABIN_BOUNDS.width, CABIN_BOUNDS.height, 12);
+    ctx.fill();
+    ctx.stroke();
+
+    // Cabin roof highlight
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(CABIN_BOUNDS.x + 8, CABIN_BOUNDS.y + 4, CABIN_BOUNDS.width - 16, 18);
+
+    // Radar scanner dome / Mast on wheelhouse roof
+    ctx.fillStyle = '#475569';
+    ctx.beginPath();
+    ctx.arc(CANVAS_WIDTH / 2, CABIN_BOUNDS.y + 10, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath();
+    const radarAngle = (Date.now() * 0.003) % (Math.PI * 2);
+    ctx.arc(CANVAS_WIDTH / 2, CABIN_BOUNDS.y + 10, 10, radarAngle, radarAngle + 0.8);
+    ctx.lineTo(CANVAS_WIDTH / 2, CABIN_BOUNDS.y + 10);
+    ctx.fill();
+
+    // Wheelhouse Glowing Windows (Nav bridge view)
+    const windowCount = 7;
+    const winW = 54;
+    const winH = 22;
+    const winSpacing = (CABIN_BOUNDS.width - 80) / (windowCount - 1);
+    for (let i = 0; i < windowCount; i++) {
+      const winX = CABIN_BOUNDS.x + 40 + i * winSpacing - winW / 2;
+      const winY = CABIN_BOUNDS.y + 32;
+
+      // Window glow
+      ctx.fillStyle = '#0369a1';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(winX, winY, winW, winH, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      // Glass shine reflection
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(winX + 6, winY + winH - 4);
+      ctx.lineTo(winX + winW - 8, winY + 4);
+      ctx.stroke();
+    }
+
+    // Wheelhouse name plaque
+    ctx.fillStyle = '#facc15';
+    ctx.font = 'bold 9px Plus Jakarta Sans';
+    ctx.textAlign = 'center';
+    ctx.fillText('⚓ FRIENDSLOP CO. WHEELHOUSE (CABIN)', CANVAS_WIDTH / 2, CABIN_BOUNDS.y + 62);
+
+    // Perimeter Casting Gunwales (Port, Starboard, Stern)
+    ctx.fillStyle = '#334155';
+    // Port railing
+    ctx.fillRect(BOAT_BOUNDS.x + 6, DECK_BOUNDS.minY, 10, DECK_BOUNDS.maxY - DECK_BOUNDS.minY);
+    // Starboard railing
+    ctx.fillRect(BOAT_BOUNDS.x + BOAT_BOUNDS.width - 16, DECK_BOUNDS.minY, 10, DECK_BOUNDS.maxY - DECK_BOUNDS.minY);
+    // Stern railing (South)
+    ctx.fillRect(DECK_BOUNDS.minX, BOAT_BOUNDS.y + BOAT_BOUNDS.height - 18, DECK_BOUNDS.maxX - DECK_BOUNDS.minX, 10);
   }
 
   private drawRailingPrompts(state: GameRoomState): void {
     const { ctx } = this;
     state.players.forEach(p => {
       if (p.isFishing || p.holdingItemId) return;
+      // North is the Cabin (no casting off the north wall!).
+      // Only permit casting near Port (West), Starboard (East), or Stern (South) railings!
       const isNearRailing = 
         p.x < DECK_BOUNDS.minX + 35 ||
         p.x > DECK_BOUNDS.maxX - 35 ||
-        p.y < DECK_BOUNDS.minY + 35 ||
         p.y > DECK_BOUNDS.maxY - 35;
 
       if (isNearRailing) {
@@ -525,21 +603,55 @@ export class GameRenderer {
     }
 
     if (station.type === 'cooler') {
-      ctx.fillStyle = '#0284c7';
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 3;
+      // Big Central Open Double Door (Fish Hold / Cargo Hatch)
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.roundRect(station.x, station.y, station.w, station.h, 12);
+      ctx.roundRect(station.x, station.y, station.w, station.h, 10);
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = '#ffffff';
+      // Deep dark hold interior
+      const inset = 6;
+      ctx.fillStyle = '#020617';
+      ctx.fillRect(station.x + inset, station.y + inset, station.w - inset * 2, station.h - inset * 2);
+
+      // Open double doors angled back (Left and Right doors)
+      const doorW = (station.w - inset * 2) / 2;
+      const doorH = station.h - inset * 2;
+
+      // Left open door flap
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(station.x + inset - 4, station.y + inset, doorW * 0.45, doorH, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      // Right open door flap
+      ctx.beginPath();
+      ctx.roundRect(station.x + station.w - inset - doorW * 0.45 + 4, station.y + inset, doorW * 0.45, doorH, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      // Warning hazard stripes along coaming lip
+      ctx.fillStyle = '#eab308';
+      ctx.fillRect(station.x + 2, station.y + station.h - 8, station.w - 4, 6);
+      ctx.fillStyle = '#000000';
+      for (let sx = station.x + 6; sx < station.x + station.w - 6; sx += 14) {
+        ctx.fillRect(sx, station.y + station.h - 8, 6, 6);
+      }
+
+      // Title & Instruction
+      ctx.fillStyle = '#38bdf8';
       ctx.font = 'bold 12px Plus Jakarta Sans';
       ctx.textAlign = 'center';
-      ctx.fillText('COOLER 🧊', station.x + station.w / 2, station.y + station.h / 2 - 4);
-      ctx.font = '10px Plus Jakarta Sans';
-      ctx.fillStyle = '#bae6fd';
-      ctx.fillText('Deposit Fish', station.x + station.w / 2, station.y + station.h / 2 + 14);
+      ctx.fillText('FISH HOLD 📦', station.x + station.w / 2, station.y + station.h / 2 - 4);
+      ctx.font = 'bold 9px Plus Jakarta Sans';
+      ctx.fillStyle = '#4ade80';
+      ctx.fillText('DROP OR TOSS FISH HERE', station.x + station.w / 2, station.y + station.h / 2 + 12);
 
     } else if (station.type === 'cutting_board') {
       ctx.fillStyle = '#d97706';
@@ -787,6 +899,24 @@ export class GameRenderer {
       }
     }
 
+    // 2.5 Radioactive Slowness indicator (toxic biohazard bubbles)
+    const isSlow = player.isSlowed || (player.slowTimer !== undefined && player.slowTimer > 0);
+    if (isSlow) {
+      const slowT = Date.now() * 0.008;
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.75)';
+      for (let b = 0; b < 3; b++) {
+        const bx = Math.sin(slowT + b * 2) * 16;
+        const by = 6 - ((Date.now() * 0.04 + b * 12) % 36);
+        ctx.beginPath();
+        ctx.arc(bx, by, 3 + (b % 2), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.font = 'bold 9px Plus Jakarta Sans';
+      ctx.fillStyle = '#4ade80';
+      ctx.textAlign = 'center';
+      ctx.fillText('☢️ SLOW', 0, 26);
+    }
+
     // 3. Render Pixel-Art Sailor Sprite
     const sprites = this.fishermanSprites[player.color] || this.fishermanSprites['yellow'];
     if (sprites && sprites.idle.complete) {
@@ -1025,13 +1155,26 @@ export class GameRenderer {
           ctx.fillText('🧈', -5, 3);
         }
       } else if (p.type === 'slime') {
-        ctx.fillStyle = 'rgba(16, 185, 129, 0.45)';
-        ctx.strokeStyle = 'rgba(110, 231, 183, 0.7)';
+        // Toxic Radioactive Slime Puddle
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.45)';
+        ctx.strokeStyle = 'rgba(74, 222, 128, 0.8)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.ellipse(0, 0, p.radius, p.radius * 0.6, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
+
+        // Bubbling bio-dots
+        const bubbleT = Date.now() * 0.005;
+        ctx.fillStyle = '#86efac';
+        ctx.beginPath();
+        ctx.arc(Math.sin(bubbleT) * (p.radius * 0.4), Math.cos(bubbleT) * (p.radius * 0.25), 2.5, 0, Math.PI * 2);
+        ctx.arc(Math.cos(bubbleT * 1.3) * (p.radius * 0.3), -Math.sin(bubbleT * 1.3) * (p.radius * 0.2), 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '9px Arial';
+        ctx.fillText('☢️', -4, 3);
       }
 
       ctx.restore();
@@ -1103,21 +1246,54 @@ export class GameRenderer {
       ctx.fillText('☢️ GEIGER: 140 mR/h (RADIOACTIVE BASS ON DECK)', 20, CANVAS_HEIGHT - 20);
     }
 
-    // 3. Ink Squid Camera Splatters
+    // 3. Ink Squid Camera Splatters (Layered Organic Semi-Transparent)
     if (shaders.inkSplatters && shaders.inkSplatters.length > 0) {
       shaders.inkSplatters.forEach(sp => {
-        const alpha = Math.min(1, sp.fadeTimer / 1.5);
-        ctx.fillStyle = `rgba(15, 23, 42, ${0.95 * alpha})`;
+        const alpha = Math.min(1, sp.fadeTimer / 2.0);
+
+        // A. Soft Fading Outer Splash Halo (allows seeing stations/players underneath)
+        ctx.fillStyle = `rgba(15, 23, 42, ${0.28 * alpha})`;
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, sp.radius * 1.35, 0, Math.PI * 2);
+        ctx.fill();
+
+        // B. Intermediate Ring
+        ctx.fillStyle = `rgba(15, 23, 42, ${0.50 * alpha})`;
         ctx.beginPath();
         ctx.arc(sp.x, sp.y, sp.radius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Ink tendrils
+        // C. Core Dark Blotches
+        ctx.fillStyle = `rgba(15, 23, 42, ${0.72 * alpha})`;
         ctx.beginPath();
-        ctx.arc(sp.x - sp.radius * 0.4, sp.y + sp.radius * 0.5, sp.radius * 0.4, 0, Math.PI * 2);
-        ctx.arc(sp.x + sp.radius * 0.4, sp.y + sp.radius * 0.6, sp.radius * 0.35, 0, Math.PI * 2);
+        ctx.arc(sp.x, sp.y, sp.radius * 0.65, 0, Math.PI * 2);
+        ctx.fill();
+
+        // D. Organic Ink Tendrils
+        ctx.fillStyle = `rgba(15, 23, 42, ${0.52 * alpha})`;
+        ctx.beginPath();
+        ctx.arc(sp.x - sp.radius * 0.55, sp.y + sp.radius * 0.45, sp.radius * 0.4, 0, Math.PI * 2);
+        ctx.arc(sp.x + sp.radius * 0.6, sp.y + sp.radius * 0.5, sp.radius * 0.35, 0, Math.PI * 2);
+        ctx.arc(sp.x + sp.radius * 0.2, sp.y - sp.radius * 0.65, sp.radius * 0.3, 0, Math.PI * 2);
+        ctx.arc(sp.x - sp.radius * 0.7, sp.y - sp.radius * 0.3, sp.radius * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+
+        // E. Tiny Satellite Splatter Specks
+        ctx.fillStyle = `rgba(15, 23, 42, ${0.40 * alpha})`;
+        ctx.beginPath();
+        ctx.arc(sp.x + sp.radius * 0.9, sp.y - sp.radius * 0.8, 5, 0, Math.PI * 2);
+        ctx.arc(sp.x - sp.radius * 0.95, sp.y + sp.radius * 0.85, 6, 0, Math.PI * 2);
+        ctx.arc(sp.x + sp.radius * 1.1, sp.y + sp.radius * 0.3, 4, 0, Math.PI * 2);
         ctx.fill();
       });
+
+      // Translucent prompt badge
+      ctx.save();
+      ctx.font = 'bold 11px Plus Jakarta Sans';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(250, 204, 21, 0.85)';
+      ctx.fillText('🦑 SQUID INK ON LENS (Swipe phone or click to wipe)', CANVAS_WIDTH / 2, 75);
+      ctx.restore();
     }
 
     // 4. 🚨 6-Second Righting Scramble Emergency Siren Overlay

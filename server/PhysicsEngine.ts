@@ -12,6 +12,7 @@ import {
   CANVAS_WIDTH, 
   BOAT_BOUNDS, 
   DECK_BOUNDS, 
+  CARGO_HOLD_BOUNDS,
   PHYSICS 
 } from '../shared/constants';
 import { FISH_REGISTRY } from '../shared/fishDatabase';
@@ -31,10 +32,47 @@ export class PhysicsEngine {
         }
       }
 
+      // Check Deck Puddles for Slipping & Radioactive Slowness
+      let standingInPuddle = false;
+      let standingInSlime = false;
+      if (room.deckPuddles) {
+        room.deckPuddles.forEach(puddle => {
+          if (Math.hypot(player.x - puddle.x, player.y - puddle.y) < puddle.radius + 8) {
+            if (puddle.type === 'butter') {
+              standingInPuddle = true;
+              player.isSlipping = true;
+            } else if (puddle.type === 'slime') {
+              standingInSlime = true;
+              player.isSlowed = true;
+              player.slowTimer = 2.5;
+            }
+          }
+        });
+      }
+      if (!standingInPuddle) {
+        player.isSlipping = false;
+      }
+      if (player.slowTimer && player.slowTimer > 0) {
+        player.slowTimer -= 1 / 60;
+        if (player.slowTimer <= 0 && !standingInSlime) {
+          player.isSlowed = false;
+        }
+      }
+
+      // Check if holding a Radioactive Slime Eel
+      if (player.holdingItemId) {
+        const held = room.items.find(i => i.id === player.holdingItemId);
+        if (held && held.speciesId === 'eel') {
+          player.isSlowed = true;
+          player.slowTimer = 2.5;
+        }
+      }
+
       const input = playerInputs.get(player.id) || { dx: 0, dy: 0, actionGrab: false, actionThrow: false, actionInteract: false, actionSlap: false };
 
       if (!player.isStunned) {
-        const moveSpeed = player.isSlipping ? PHYSICS.playerSpeed * 0.4 : PHYSICS.playerSpeed;
+        const slowMod = (player.isSlowed || (player.slowTimer && player.slowTimer > 0)) ? 0.5 : 1.0;
+        const moveSpeed = player.isSlipping ? PHYSICS.playerSpeed * 0.4 : PHYSICS.playerSpeed * slowMod;
         player.vx += input.dx * moveSpeed * 0.3;
         player.vy += input.dy * moveSpeed * 0.3;
 
@@ -63,6 +101,26 @@ export class PhysicsEngine {
       // Keep player inside deck bounds
       player.x = Math.max(DECK_BOUNDS.minX, Math.min(DECK_BOUNDS.maxX, player.x));
       player.y = Math.max(DECK_BOUNDS.minY, Math.min(DECK_BOUNDS.maxY, player.y));
+
+      // Solid Central Cargo Hold Collision Box (Unpassable selling & stowage structure)
+      const holdMargin = 16;
+      const holdLeft = CARGO_HOLD_BOUNDS.x - holdMargin;
+      const holdRight = CARGO_HOLD_BOUNDS.x + CARGO_HOLD_BOUNDS.width + holdMargin;
+      const holdTop = CARGO_HOLD_BOUNDS.y - holdMargin;
+      const holdBottom = CARGO_HOLD_BOUNDS.y + CARGO_HOLD_BOUNDS.height + holdMargin;
+
+      if (player.x > holdLeft && player.x < holdRight && player.y > holdTop && player.y < holdBottom) {
+        const dLeft = Math.abs(player.x - holdLeft);
+        const dRight = Math.abs(player.x - holdRight);
+        const dTop = Math.abs(player.y - holdTop);
+        const dBottom = Math.abs(player.y - holdBottom);
+        const minD = Math.min(dLeft, dRight, dTop, dBottom);
+
+        if (minD === dLeft) { player.x = holdLeft; player.vx = 0; }
+        else if (minD === dRight) { player.x = holdRight; player.vx = 0; }
+        else if (minD === dTop) { player.y = holdTop; player.vy = 0; }
+        else { player.y = holdBottom; player.vy = 0; }
+      }
 
       // Handle item position if holding
       if (player.holdingItemId) {
@@ -149,6 +207,73 @@ export class PhysicsEngine {
           PhysicsEngine.triggerExplosion(room, item.x, item.y, onEvent);
           room.items.splice(i, 1);
           continue;
+        }
+      } else if (item.speciesId === 'eel') {
+        // Radioactive Slime Eel leaves green slime trails when sliding on deck
+        const speed = Math.hypot(item.vx, item.vy);
+        if (speed > 0.35) {
+          item.stateTimer = (item.stateTimer || 0.6) - (1 / 60);
+          if (item.stateTimer <= 0) {
+            item.stateTimer = 0.7;
+            if (!room.deckPuddles) room.deckPuddles = [];
+            if (room.deckPuddles.length < 25) {
+              room.deckPuddles.push({
+                id: 'slime_' + Date.now() + '_' + Math.random(),
+                type: 'slime',
+                x: item.x,
+                y: item.y,
+                radius: 16,
+                duration: 9.0
+              });
+            }
+          }
+        }
+      } else if (item.speciesId === 'tuna') {
+        // Heavy Greasy Butter Tuna leaves butter skid marks when sliding
+        const speed = Math.hypot(item.vx, item.vy);
+        if (speed > 0.25) {
+          item.stateTimer = (item.stateTimer || 0.7) - (1 / 60);
+          if (item.stateTimer <= 0) {
+            item.stateTimer = 0.75;
+            if (!room.deckPuddles) room.deckPuddles = [];
+            if (room.deckPuddles.length < 25) {
+              room.deckPuddles.push({
+                id: 'butter_' + Date.now() + '_' + Math.random(),
+                type: 'butter',
+                x: item.x,
+                y: item.y,
+                radius: 20,
+                duration: 12.0
+              });
+            }
+          }
+        }
+      } else if (item.speciesId === 'squid') {
+        item.stateTimer = (item.stateTimer || 4.0) - (1 / 60);
+        if (item.stateTimer <= 0) {
+          item.stateTimer = 6.0;
+          if (!room.screenShaders) {
+            room.screenShaders = { greenCrtGlow: false, solarEclipseDarkness: 0, geigerSoundActive: false, inkSplatters: [] };
+          }
+          if (room.screenShaders.inkSplatters.length < 4) {
+            room.screenShaders.inkSplatters.push({
+              x: 140 + Math.random() * (CANVAS_WIDTH - 280),
+              y: 90 + Math.random() * (540 - 180),
+              radius: 40 + Math.random() * 30,
+              fadeTimer: 6.0
+            });
+            if (!room.deckPuddles) room.deckPuddles = [];
+            room.deckPuddles.push({
+              id: 'ink_' + Date.now() + '_' + Math.random(),
+              type: 'slime',
+              x: item.x,
+              y: item.y,
+              radius: 16,
+              duration: 8.0
+            });
+            onEvent?.('sfx', 'splash');
+            onEvent?.('feed', { text: '🦑 SQUIRT! Squid splattered ink on the camera lens!', type: 'hazard' });
+          }
         }
       }
 

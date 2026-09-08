@@ -42,6 +42,8 @@ export class PhoneControllerApp {
 
     this.setupJoystick();
     this.setupActionButtons();
+    this.setupReelTouchSlider();
+    this.setupScreenWipeGestures();
     this.setupBroadcastChannel();
     this.setupNetworkBridge();
     this.parseURLParams();
@@ -256,6 +258,84 @@ export class PhoneControllerApp {
     btnSecondary.addEventListener('mousedown', onSecondaryDown);
   }
 
+  // --- Reel Slider Touch & Swipe Wiping Minigames ---
+
+  private setupReelTouchSlider(): void {
+    const track = document.getElementById('ctrl-reel-track');
+    if (!track) return;
+
+    const handleReelTouch = (clientX: number) => {
+      const rect = track.getBoundingClientRect();
+      const relativeX = clientX - rect.left;
+      const pct = Math.max(0.05, Math.min(0.85, relativeX / rect.width));
+      this.currentInput.reelTargetPos = pct;
+      this.triggerHaptic(12);
+
+      const catcher = document.getElementById('ctrl-reel-catcher');
+      if (catcher) {
+        catcher.style.left = `${pct * 100}%`;
+      }
+    };
+
+    track.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (e.touches.length > 0) handleReelTouch(e.touches[0].clientX);
+    }, { passive: false });
+
+    track.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (e.touches.length > 0) handleReelTouch(e.touches[0].clientX);
+    }, { passive: false });
+
+    track.addEventListener('mousedown', (e) => {
+      handleReelTouch(e.clientX);
+      const onMouseMove = (moveEv: MouseEvent) => handleReelTouch(moveEv.clientX);
+      const onMouseUp = () => {
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      };
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    });
+  }
+
+  private setupScreenWipeGestures(): void {
+    const wipeOverlay = document.getElementById('ctrl-wipe-overlay');
+    if (!wipeOverlay) return;
+
+    let lastX = 0;
+    let lastY = 0;
+
+    const handleWipeMove = (clientX: number, clientY: number) => {
+      if (lastX !== 0 && lastY !== 0) {
+        const dist = Math.hypot(clientX - lastX, clientY - lastY);
+        if (dist > 15) {
+          this.currentInput.screenWipeAmount = (this.currentInput.screenWipeAmount || 0) + (dist / 400);
+          this.triggerHaptic(10);
+        }
+      }
+      lastX = clientX;
+      lastY = clientY;
+    };
+
+    const handleWipeEnd = () => {
+      lastX = 0;
+      lastY = 0;
+    };
+
+    wipeOverlay.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (e.touches.length > 0) handleWipeMove(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: false });
+
+    wipeOverlay.addEventListener('touchend', handleWipeEnd);
+
+    wipeOverlay.addEventListener('mousemove', (e) => {
+      if (e.buttons === 1) handleWipeMove(e.clientX, e.clientY);
+    });
+    wipeOverlay.addEventListener('mouseup', handleWipeEnd);
+  }
+
   // --- Broadcast Channel / WebSocket Bridge ---
 
   private channel: BroadcastChannel | null = null;
@@ -394,6 +474,41 @@ export class PhoneControllerApp {
         if (secondaryLabel) secondaryLabel.textContent = 'SLAP';
         if (secondaryIcon) secondaryIcon.className = 'fa-solid fa-hand-back-fist text-lg';
       }
+
+      // Reel Bar Overlay Sync
+      const reelOverlay = document.getElementById('ctrl-reel-overlay');
+      if (me.isFishing && (me.fishingState === 'reeling' || me.fishingState === 'biting')) {
+        reelOverlay?.classList.remove('hidden');
+        const speciesLabel = document.getElementById('ctrl-reel-species');
+        const pctLabel = document.getElementById('ctrl-reel-pct');
+        const progressFill = document.getElementById('ctrl-reel-progress-fill');
+        const catcher = document.getElementById('ctrl-reel-catcher');
+        const fishDot = document.getElementById('ctrl-reel-fish');
+
+        if (speciesLabel && me.fishingTargetSpecies) {
+          speciesLabel.textContent = me.fishingTargetSpecies.toUpperCase();
+        }
+        const pct = Math.round((me.reelProgress || 0) * 100);
+        if (pctLabel) pctLabel.textContent = `${pct}%`;
+        if (progressFill) progressFill.style.width = `${pct}%`;
+
+        if (catcher && me.reelSweetSpot !== undefined) {
+          catcher.style.left = `${me.reelSweetSpot * 100}%`;
+        }
+        if (fishDot && me.reelNeedle !== undefined) {
+          fishDot.style.left = `${me.reelNeedle * 100}%`;
+        }
+      } else {
+        reelOverlay?.classList.add('hidden');
+      }
+    }
+
+    // Screen Wipe Overlay Sync (Active if ink splatters are present)
+    const wipeOverlay = document.getElementById('ctrl-wipe-overlay');
+    if (state.screenShaders?.inkSplatters && state.screenShaders.inkSplatters.length > 0) {
+      wipeOverlay?.classList.remove('hidden');
+    } else {
+      wipeOverlay?.classList.add('hidden');
     }
   }
 

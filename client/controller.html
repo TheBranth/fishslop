@@ -112,6 +112,41 @@
                 <span id="btn-primary-label" class="text-xl font-black tracking-wider block uppercase">ACTION</span>
                 <span id="btn-primary-sub" class="text-[10px] font-bold opacity-80 block font-mono mt-0.5">TAP OR HOLD</span>
             </button>
+        <!-- Tactical Reel Bar Overlay (Morphs in when fishing/reeling) -->
+        <div id="ctrl-reel-overlay" class="absolute inset-x-2 inset-y-2 bg-slate-950/95 border-2 border-teal-500/70 rounded-2xl flex flex-col items-center justify-between p-3 hidden z-20 backdrop-blur">
+            <div class="w-full flex items-center justify-between text-xs font-bold font-mono">
+                <span class="text-teal-300 flex items-center gap-1">🎣 <span id="ctrl-reel-species">REELING FISH!</span></span>
+                <span id="ctrl-reel-pct" class="text-amber-300">0%</span>
+            </div>
+            <!-- Progress Bar -->
+            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                <div id="ctrl-reel-progress-fill" class="h-full bg-gradient-to-r from-teal-400 to-emerald-400 w-1/4 transition-all duration-75"></div>
+            </div>
+            <!-- Touch Slider Track -->
+            <div id="ctrl-reel-track" class="w-full h-20 bg-slate-900 border-2 border-teal-400/50 rounded-xl relative touch-none cursor-pointer overflow-hidden flex items-center">
+                <div class="absolute inset-y-0 w-1 bg-amber-400/30" style="left: 50%;"></div>
+                <!-- Sweet Spot Green Catcher Bar -->
+                <div id="ctrl-reel-catcher" class="absolute inset-y-1 bg-teal-500/40 border-2 border-teal-300 rounded-lg shadow-lg shadow-teal-500/30 transition-all duration-75" style="left: 35%; width: 30%;">
+                    <div class="w-full h-full flex items-center justify-center text-[10px] font-black text-white/80 uppercase">HOLD HERE</div>
+                </div>
+                <!-- Fish Marker (Yellow dot) -->
+                <div id="ctrl-reel-fish" class="absolute top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-amber-400 border-2 border-white shadow-lg shadow-amber-400/50 flex items-center justify-center text-xs transition-all duration-75 pointer-events-none" style="left: 45%;">
+                    🐟
+                </div>
+            </div>
+            <span class="text-[10px] font-bold text-teal-300/80 uppercase tracking-wider">Drag thumb along bar to keep fish in green zone!</span>
+        </div>
+
+        <!-- Squid Ink Screen Wipe Overlay (Interactive screen cleaning minigame) -->
+        <div id="ctrl-wipe-overlay" class="absolute inset-0 bg-slate-950/90 rounded-2xl flex flex-col items-center justify-center p-4 hidden z-30 touch-none">
+            <div class="w-16 h-16 rounded-full bg-purple-900/60 border-2 border-purple-400/50 flex items-center justify-center text-3xl mb-2 animate-bounce">
+                🧽
+            </div>
+            <h3 class="text-sm font-black text-purple-200 uppercase tracking-wider">INK BLINDING THE SCREEN!</h3>
+            <p class="text-xs text-purple-300/80 font-mono text-center mt-1">Vigorously swipe your screen to wipe ink off the TV camera!</p>
+            <div class="mt-3 px-3 py-1 bg-purple-950 border border-purple-500/40 rounded-full text-[10px] font-mono font-bold text-amber-300 animate-pulse">
+                SWIPE RAPIDLY ↕ ↔
+            </div>
         </div>
     </main>
 

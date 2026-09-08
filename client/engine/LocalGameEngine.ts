@@ -24,7 +24,9 @@ import {
   ROGUELITE_LEVELS,
   MAX_SOLO_LIFT_WEIGHT,
   FIXED_STARTER_STATIONS,
-  MODULAR_SOCKET_LAYOUTS
+  MODULAR_SOCKET_LAYOUTS,
+  CABIN_BOUNDS,
+  CARGO_HOLD_BOUNDS
 } from '../../shared/constants';
 import { FISH_REGISTRY } from '../../shared/fishDatabase';
 import { validateStationInteraction } from '../../shared/recipes';
@@ -324,16 +326,38 @@ export class LocalGameEngine {
         if (p.stunTimer <= 0) p.isStunned = false;
       }
 
-      // Check Deck Puddles for Slipping
+      // Check Deck Puddles for Slipping & Radioactive Slowness
       let standingInPuddle = false;
+      let standingInSlime = false;
       state.deckPuddles.forEach(puddle => {
         if (Math.hypot(p.x - puddle.x, p.y - puddle.y) < puddle.radius + 8) {
-          standingInPuddle = true;
-          p.isSlipping = true;
+          if (puddle.type === 'butter') {
+            standingInPuddle = true;
+            p.isSlipping = true;
+          } else if (puddle.type === 'slime') {
+            standingInSlime = true;
+            p.isSlowed = true;
+            p.slowTimer = 2.5;
+          }
         }
       });
       if (!standingInPuddle) {
         p.isSlipping = false;
+      }
+      if (p.slowTimer && p.slowTimer > 0) {
+        p.slowTimer -= 1 / 60;
+        if (p.slowTimer <= 0 && !standingInSlime) {
+          p.isSlowed = false;
+        }
+      }
+
+      // Check if holding a Radioactive Slime Eel
+      if (p.holdingItemId) {
+        const held = state.items.find(i => i.id === p.holdingItemId);
+        if (held && held.speciesId === 'eel') {
+          p.isSlowed = true;
+          p.slowTimer = 2.5;
+        }
       }
 
       if (p.isFishing) {
@@ -353,7 +377,8 @@ export class LocalGameEngine {
           }
         }
 
-        const baseSpeed = (p.isSlipping && !hasMagneticBoots) ? PHYSICS.playerSpeed * 0.4 : PHYSICS.playerSpeed;
+        const slowMod = (p.isSlowed || (p.slowTimer && p.slowTimer > 0)) ? 0.5 : 1.0;
+        const baseSpeed = (p.isSlipping && !hasMagneticBoots) ? PHYSICS.playerSpeed * 0.4 : PHYSICS.playerSpeed * slowMod;
         const speed = baseSpeed * weightSpeedMod;
         
         p.vx += input.dx * speed * 0.3;
@@ -379,6 +404,27 @@ export class LocalGameEngine {
 
         p.x = Math.max(DECK_BOUNDS.minX, Math.min(DECK_BOUNDS.maxX, p.x));
         p.y = Math.max(DECK_BOUNDS.minY, Math.min(DECK_BOUNDS.maxY, p.y));
+
+        // Solid Central Cargo Hold Collision Box (Unpassable selling & stowage structure)
+        const holdMargin = 16;
+        const holdLeft = CARGO_HOLD_BOUNDS.x - holdMargin;
+        const holdRight = CARGO_HOLD_BOUNDS.x + CARGO_HOLD_BOUNDS.width + holdMargin;
+        const holdTop = CARGO_HOLD_BOUNDS.y - holdMargin;
+        const holdBottom = CARGO_HOLD_BOUNDS.y + CARGO_HOLD_BOUNDS.height + holdMargin;
+
+        if (p.x > holdLeft && p.x < holdRight && p.y > holdTop && p.y < holdBottom) {
+          // Push player out along axis of least penetration
+          const dLeft = Math.abs(p.x - holdLeft);
+          const dRight = Math.abs(p.x - holdRight);
+          const dTop = Math.abs(p.y - holdTop);
+          const dBottom = Math.abs(p.y - holdBottom);
+          const minD = Math.min(dLeft, dRight, dTop, dBottom);
+
+          if (minD === dLeft) { p.x = holdLeft; p.vx = 0; }
+          else if (minD === dRight) { p.x = holdRight; p.vx = 0; }
+          else if (minD === dTop) { p.y = holdTop; p.vy = 0; }
+          else { p.y = holdBottom; p.vy = 0; }
+        }
 
         if (p.holdingItemId) {
           const held = state.items.find(i => i.id === p.holdingItemId);
@@ -470,6 +516,19 @@ export class LocalGameEngine {
     state.screenShaders.solarEclipseDarkness = 0;
     state.screenShaders.geigerSoundActive = false;
 
+    // Process screen wipe input from mobile controllers or mouse swipes
+    const wipeTotal = (this.p1Input.screenWipeAmount || 0) + (this.p2Input.screenWipeAmount || 0);
+    if (wipeTotal > 0) {
+      for (let i = state.screenShaders.inkSplatters.length - 1; i >= 0; i--) {
+        state.screenShaders.inkSplatters[i].fadeTimer -= wipeTotal * 2.5;
+        if (state.screenShaders.inkSplatters[i].fadeTimer <= 0) {
+          state.screenShaders.inkSplatters.splice(i, 1);
+        }
+      }
+      this.p1Input.screenWipeAmount = 0;
+      this.p2Input.screenWipeAmount = 0;
+    }
+
     for (let i = state.screenShaders.inkSplatters.length - 1; i >= 0; i--) {
       state.screenShaders.inkSplatters[i].fadeTimer -= 1 / 60;
       if (state.screenShaders.inkSplatters[i].fadeTimer <= 0) {
@@ -483,19 +542,66 @@ export class LocalGameEngine {
         state.screenShaders.geigerSoundActive = true;
       } else if (item.speciesId === 'moonfish') {
         state.screenShaders.solarEclipseDarkness = Math.max(state.screenShaders.solarEclipseDarkness, 0.60);
+      } else if (item.speciesId === 'eel' && !item.isHeld) {
+        // Radioactive Slime Eel leaves green slime trails when sliding on deck
+        const speed = Math.hypot(item.vx, item.vy);
+        if (speed > 0.35) {
+          item.stateTimer = (item.stateTimer || 0.6) - (1 / 60);
+          if (item.stateTimer <= 0) {
+            item.stateTimer = 0.7;
+            if (state.deckPuddles.length < 25) {
+              state.deckPuddles.push({
+                id: 'slime_' + Date.now() + '_' + Math.random(),
+                type: 'slime',
+                x: item.x,
+                y: item.y,
+                radius: 16,
+                duration: 9.0
+              });
+            }
+          }
+        }
       } else if (item.speciesId === 'tuna' && !item.isHeld) {
-        item.stateTimer = (item.stateTimer || 1.0) - (1 / 60);
+        // Heavy Greasy Butter Tuna leaves butter skid marks when sliding
+        const speed = Math.hypot(item.vx, item.vy);
+        if (speed > 0.25) {
+          item.stateTimer = (item.stateTimer || 0.7) - (1 / 60);
+          if (item.stateTimer <= 0) {
+            item.stateTimer = 0.75;
+            if (state.deckPuddles.length < 25) {
+              state.deckPuddles.push({
+                id: 'butter_' + Date.now() + '_' + Math.random(),
+                type: 'butter',
+                x: item.x,
+                y: item.y,
+                radius: 20,
+                duration: 12.0
+              });
+            }
+          }
+        }
+      } else if (item.speciesId === 'squid' && !item.isHeld) {
+        // Squid camera ink squirt
+        item.stateTimer = (item.stateTimer || 4.0) - (1 / 60);
         if (item.stateTimer <= 0) {
-          item.stateTimer = 1.0;
-          if (Math.random() < 0.50 && state.deckPuddles.length < 20) {
+          item.stateTimer = 6.0;
+          if (state.screenShaders.inkSplatters.length < 4) {
+            state.screenShaders.inkSplatters.push({
+              x: 140 + Math.random() * (CANVAS_WIDTH - 280),
+              y: 90 + Math.random() * (CANVAS_HEIGHT - 180),
+              radius: 40 + Math.random() * 30,
+              fadeTimer: 6.0
+            });
             state.deckPuddles.push({
-              id: 'butter_' + Date.now() + '_' + Math.random(),
-              type: 'butter',
+              id: 'ink_' + Date.now() + '_' + Math.random(),
+              type: 'slime',
               x: item.x,
               y: item.y,
-              radius: 20,
-              duration: 12.0
+              radius: 16,
+              duration: 8.0
             });
+            this.addFeedMessage('🦑 SQUIRT! Squid splattered ink on the camera lens!', 'hazard');
+            this.onEvent?.('sfx', 'splash');
           }
         }
       } else if (item.speciesId === 'ray') {
@@ -1251,12 +1357,15 @@ export class LocalGameEngine {
       const t = Date.now() * 0.0015 * speedMod;
       p.reelNeedle = 0.5 + Math.sin(t * 2.2) * 0.38 + Math.cos(t * 1.1) * 0.08;
 
-      const isPushing = input.isActionPrimaryHeld || input.actionPrimary || input.dx > 0.1 || input.dy < -0.1;
-
-      if (isPushing) {
-        p.reelSweetSpot = Math.min(0.85, (p.reelSweetSpot || 0.2) + 0.018);
+      if (input.reelTargetPos !== undefined) {
+        p.reelSweetSpot = Math.max(0.05, Math.min(0.85, input.reelTargetPos));
       } else {
-        p.reelSweetSpot = Math.max(0.05, (p.reelSweetSpot || 0.2) - 0.014);
+        const isPushing = input.isActionPrimaryHeld || input.actionPrimary || input.dx > 0.1 || input.dy < -0.1;
+        if (isPushing) {
+          p.reelSweetSpot = Math.min(0.85, (p.reelSweetSpot || 0.2) + 0.018);
+        } else {
+          p.reelSweetSpot = Math.max(0.05, (p.reelSweetSpot || 0.2) - 0.014);
+        }
       }
 
       // Turbo reel perk expands bar width

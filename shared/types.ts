@@ -18,6 +18,8 @@ export interface PlayerInput {
   actionPrimary: boolean;      // Button 1: Action / Work / Drop / Cast / Reel / Heave
   actionSecondary: boolean;    // Button 2: Chaos / Slap / Throw / Cut
   isActionPrimaryHeld?: boolean;
+  reelTargetPos?: number;      // 0.0 to 1.0 from mobile touch slider
+  screenWipeAmount?: number;   // Grime/ink wiped via phone swipe gesture
 }
 
 export interface PlayerState {
@@ -34,6 +36,8 @@ export interface PlayerState {
   isStunned: boolean;
   stunTimer: number;
   isSlipping: boolean;
+  isSlowed?: boolean;
+  slowTimer?: number;
   isReady: boolean;
   holdingItemId: string | null;
   score: number;

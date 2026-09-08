@@ -8,27 +8,43 @@ export const TICK_INTERVAL = 1000 / TICK_RATE;
 export const CANVAS_WIDTH = 960;
 export const CANVAS_HEIGHT = 540;
 
-// Boat Dimensions on Canvas
+// Boat Dimensions on Canvas (Expanded to fill canvas with minimalist trawler architecture)
 export const BOAT_BOUNDS = {
-  x: 140,
-  y: 90,
-  width: 680,
-  height: 360,
+  x: 70,
+  y: 50,
+  width: 820,
+  height: 440,
   plankMargin: 30,
-  radius: 36
+  radius: 40
 };
 
-// Playable Deck Area
+// North Cabin / Wheelhouse Bounds (Solid unpassable structure; blocks North wall)
+export const CABIN_BOUNDS = {
+  x: 100,
+  y: 52,
+  width: 760,
+  height: 68
+};
+
+// Center Fish Hold / Cargo Double Doors (Unpassable selling & stowage structure)
+export const CARGO_HOLD_BOUNDS = {
+  x: 420,
+  y: 260,
+  width: 120,
+  height: 80
+};
+
+// Playable Deck Area (South of Cabin, within perimeter gunwales)
 export const DECK_BOUNDS = {
-  minX: BOAT_BOUNDS.x + 38,
-  maxX: BOAT_BOUNDS.x + BOAT_BOUNDS.width - 38,
-  minY: BOAT_BOUNDS.y + 32,
-  maxY: BOAT_BOUNDS.y + BOAT_BOUNDS.height - 32
+  minX: BOAT_BOUNDS.x + 36,
+  maxX: BOAT_BOUNDS.x + BOAT_BOUNDS.width - 36,
+  minY: CABIN_BOUNDS.y + CABIN_BOUNDS.height + 12,
+  maxY: BOAT_BOUNDS.y + BOAT_BOUNDS.height - 34
 };
 
 // Physics Tuning
 export const PHYSICS = {
-  playerSpeed: 3.6,
+  playerSpeed: 2.3,
   playerFriction: 0.88,
   itemFriction: 0.90,
   tiltGravityMultiplier: 0.16,
@@ -194,18 +210,18 @@ export const ROGUELITE_LEVELS: RogueliteLevel[] = [
   }
 ];
 
-// Fixed Starter Stations (Level 1 Foundation)
+// Fixed Starter Stations (Central Hold + Deck Utility)
 export const FIXED_STARTER_STATIONS = [
-  { type: 'rod_rack' as StationType, name: 'Rod Storage Rack', x: 235, y: 260, w: 40, h: 65 },
-  { type: 'cooler' as StationType, name: 'Delivery Cooler', x: 725, y: 260, w: 44, h: 70 },
-  { type: 'trash_chute' as StationType, name: 'Trash Chute', x: 460, y: 395, w: 80, h: 40 }
+  { type: 'rod_rack' as StationType, name: 'Rod Storage Rack', x: 135, y: 155, w: 42, h: 70 },
+  { type: 'cooler' as StationType, name: 'Fish Hold (Cargo Hatch)', x: CARGO_HOLD_BOUNDS.x, y: CARGO_HOLD_BOUNDS.y, w: CARGO_HOLD_BOUNDS.width, h: CARGO_HOLD_BOUNDS.height },
+  { type: 'trash_chute' as StationType, name: 'Overboard Trash Chute', x: 440, y: 445, w: 80, h: 36 }
 ];
 
-// 4 Modular Border Sockets (Auto-Balanced Gunwale Worktops)
+// 4 Modular Corner Sockets (Arranged in the 4 corners flanking the central cargo hold)
 export const MODULAR_SOCKET_LAYOUTS = [
-  { socketIndex: 0, name: 'Socket #1 (Port Bow)', x: 240, y: 140, w: 65, h: 50 },
-  { socketIndex: 1, name: 'Socket #2 (Starboard Bow)', x: 695, y: 140, w: 65, h: 50 },
-  { socketIndex: 2, name: 'Socket #3 (Port Stern)', x: 240, y: 340, w: 65, h: 50 },
-  { socketIndex: 3, name: 'Socket #4 (Starboard Stern)', x: 695, y: 340, w: 65, h: 50 }
+  { socketIndex: 0, name: 'Socket #1 (Port Bow Corner)', x: 280, y: 170, w: 70, h: 55 },
+  { socketIndex: 1, name: 'Socket #2 (Starboard Bow Corner)', x: 610, y: 170, w: 70, h: 55 },
+  { socketIndex: 2, name: 'Socket #3 (Port Stern Corner)', x: 280, y: 360, w: 70, h: 55 },
+  { socketIndex: 3, name: 'Socket #4 (Starboard Stern Corner)', x: 610, y: 360, w: 70, h: 55 }
 ];
 
