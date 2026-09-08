@@ -1418,12 +1418,37 @@ export class LocalGameEngine {
     p.reelSweetSpot = 0.2;
     p.reelNeedle = 0.5;
 
+    // Calculate closest railing edge to avoid huge lines when facing inwards/sideways
+    const distLeft = Math.abs(p.x - DECK_BOUNDS.minX);
+    const distRight = Math.abs(DECK_BOUNDS.maxX - p.x);
+    const distBottom = Math.abs(DECK_BOUNDS.maxY - p.y);
+
     let castX = p.x;
     let castY = p.y;
-    if (p.facing === 'left') castX = BOAT_BOUNDS.x - 45;
-    else if (p.facing === 'right') castX = BOAT_BOUNDS.x + BOAT_BOUNDS.width + 45;
-    else if (p.facing === 'up') castY = BOAT_BOUNDS.y - 45;
-    else if (p.facing === 'down') castY = BOAT_BOUNDS.y + BOAT_BOUNDS.height + 45;
+
+    // Cast into water just outside closest gunwale (max 38-45px from player)
+    if (distLeft < distRight && distLeft < distBottom && distLeft < 45) {
+      // Left / Port railing
+      castX = BOAT_BOUNDS.x - 22;
+      castY = p.y + (p.facing === 'down' ? 12 : p.facing === 'up' ? -12 : 0);
+      p.facing = 'left';
+    } else if (distRight < distLeft && distRight < distBottom && distRight < 45) {
+      // Right / Starboard railing
+      castX = BOAT_BOUNDS.x + BOAT_BOUNDS.width + 22;
+      castY = p.y + (p.facing === 'down' ? 12 : p.facing === 'up' ? -12 : 0);
+      p.facing = 'right';
+    } else if (distBottom < 45) {
+      // Stern / South railing
+      castX = p.x + (p.facing === 'right' ? 12 : p.facing === 'left' ? -12 : 0);
+      castY = BOAT_BOUNDS.y + BOAT_BOUNDS.height + 22;
+      p.facing = 'down';
+    } else {
+      // Fallback: cast 35px in facing direction
+      if (p.facing === 'left') castX = p.x - 38;
+      else if (p.facing === 'right') castX = p.x + 38;
+      else if (p.facing === 'down') castY = p.y + 38;
+      else castY = p.y - 38;
+    }
 
     p.castTargetX = castX;
     p.castTargetY = castY;
