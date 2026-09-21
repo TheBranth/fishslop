@@ -45,11 +45,25 @@ export class GameRenderer {
   private butterImg: HTMLImageElement | null = null;
   private itemSprites: Record<string, HTMLImageElement> = {};
   private stationSprites: Record<string, HTMLImageElement> = {};
+  private dpr: number = 1;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
+    this.setupDPI();
     this.initSprites();
+  }
+
+  public setupDPI(): void {
+    const rawDpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
+    this.dpr = Math.min(Math.max(rawDpr, 1), 2);
+    const targetW = Math.round(CANVAS_WIDTH * this.dpr);
+    const targetH = Math.round(CANVAS_HEIGHT * this.dpr);
+
+    if (this.canvas.width !== targetW || this.canvas.height !== targetH) {
+      this.canvas.width = targetW;
+      this.canvas.height = targetH;
+    }
   }
 
   private initSprites(): void {
@@ -170,10 +184,14 @@ export class GameRenderer {
 
   public render(state: GameRoomState, oceanShadows?: OceanFishShadow[]): void {
     const { ctx, canvas } = this;
+    this.setupDPI();
     this.waveOffset += 0.03;
 
+    ctx.save();
+    ctx.scale(this.dpr, this.dpr);
+
     // 1. Clear & Ocean Background with Level Atmospheric Shaders
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     this.drawLevelAtmosphere(state);
 
     // 2. Swimming Fish Shadows in Ocean
@@ -252,6 +270,8 @@ export class GameRenderer {
 
     // 17. Floating Comic Popups (+$120 CHOWDER!, 💥 STUNNED!, 🤝 CONGA!)
     this.drawFloatingComicPopups();
+
+    ctx.restore();
   }
 
   private drawLevelAtmosphere(state: GameRoomState): void {
@@ -629,17 +649,18 @@ export class GameRenderer {
     ctx.fillStyle = '#0f172a';
     ctx.strokeStyle = '#facc15';
     ctx.lineWidth = 1.5;
-    const plateW = 240;
-    const plateH = 14;
+    const plateW = 280;
+    const plateH = 18;
     ctx.beginPath();
-    ctx.roundRect(CANVAS_WIDTH / 2 - plateW / 2, CABIN_BOUNDS.y + 53, plateW, plateH, 3);
+    ctx.roundRect(CANVAS_WIDTH / 2 - plateW / 2, CABIN_BOUNDS.y + 51, plateW, plateH, 4);
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = '#fde047';
-    ctx.font = 'bold 9px Plus Jakarta Sans';
+    ctx.fillStyle = '#fef08a';
+    ctx.font = 'bold 11px Plus Jakarta Sans';
     ctx.textAlign = 'center';
-    ctx.fillText('⚓ S.S. FRIENDSLOP — TRAWLER WHEELHOUSE', CANVAS_WIDTH / 2, CABIN_BOUNDS.y + 63);
+    ctx.textBaseline = 'middle';
+    ctx.fillText('⚓ S.S. FRIENDSLOP — TRAWLER WHEELHOUSE', CANVAS_WIDTH / 2, CABIN_BOUNDS.y + 60);
 
     // Perimeter Casting Gunwales (Port, Starboard, Stern) with Bollards & Lifebuoys
     ctx.fillStyle = '#475569';
@@ -687,10 +708,21 @@ export class GameRenderer {
         p.y > DECK_BOUNDS.maxY - 35;
 
       if (isNearRailing) {
-        ctx.fillStyle = 'rgba(45, 212, 191, 0.9)';
+        const promptText = '🎣 CAST (Space / J / Enter)';
         ctx.font = 'bold 10px Plus Jakarta Sans';
+        const pw = ctx.measureText(promptText).width;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+        ctx.beginPath();
+        ctx.roundRect(p.x - pw / 2 - 8, p.y - 44, pw + 16, 18, 6);
+        ctx.fill();
+        ctx.strokeStyle = '#2dd4bf';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.fillStyle = '#5eead4';
         ctx.textAlign = 'center';
-        ctx.fillText('🎣 CAST (Space / J / Enter)', p.x, p.y - 34);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(promptText, p.x, p.y - 35);
       }
     });
   }
@@ -991,10 +1023,21 @@ export class GameRenderer {
           ctx.fill();
         }
       } else {
-        ctx.fillStyle = '#c084fc';
-        ctx.font = 'bold 8px Plus Jakarta Sans';
+        const sx = station.x + station.w / 2;
+        const sy = station.y + station.h - 8;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.strokeStyle = '#c084fc';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(sx - 28, sy - 7, 56, 15, 4);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#f3e8ff';
+        ctx.font = 'bold 9px Plus Jakarta Sans';
         ctx.textAlign = 'center';
-        ctx.fillText('SUSHI 🍣', station.x + station.w / 2, station.y + station.h - 6);
+        ctx.textBaseline = 'middle';
+        ctx.fillText('SUSHI 🍣', sx, sy);
       }
     }
 
@@ -1007,10 +1050,21 @@ export class GameRenderer {
       ctx.arc(station.x + station.w / 2 + foam, station.y + station.h / 2, 4, 0, Math.PI * 2);
       ctx.fill();
 
+      const tx = station.x + station.w / 2;
+      const ty = station.y + station.h - 8;
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(tx - 30, ty - 7, 60, 15, 4);
+      ctx.fill();
+      ctx.stroke();
+
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 8px Plus Jakarta Sans';
+      ctx.font = 'bold 9px Plus Jakarta Sans';
       ctx.textAlign = 'center';
-      ctx.fillText('TRASH 🗑️', station.x + station.w / 2, station.y + station.h - 6);
+      ctx.textBaseline = 'middle';
+      ctx.fillText('TRASH 🗑️', tx, ty);
     }
 
     // 7. FISH HOLD / COOLER (CENTRAL CARGO HATCH)
@@ -1026,21 +1080,45 @@ export class GameRenderer {
         }
       }
 
+      const cx = station.x + station.w / 2;
+      const cy = station.y + station.h / 2 + 2;
+
+      // High-contrast frosted nautical pill badge over ice
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(cx - 70, cy - 16, 140, 32, 6);
+      ctx.fill();
+      ctx.stroke();
+
       ctx.fillStyle = '#38bdf8';
-      ctx.font = 'bold 11px Plus Jakarta Sans';
+      ctx.font = 'bold 12px Plus Jakarta Sans';
       ctx.textAlign = 'center';
-      ctx.fillText('FISH HOLD 📦', station.x + station.w / 2, station.y + station.h / 2 - 2);
-      ctx.font = 'bold 8px Plus Jakarta Sans';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('FISH HOLD 📦', cx, cy - 5);
+      ctx.font = 'bold 9px Plus Jakarta Sans';
       ctx.fillStyle = '#4ade80';
-      ctx.fillText('DROP OR TOSS FISH HERE', station.x + station.w / 2, station.y + station.h / 2 + 12);
+      ctx.fillText('DROP OR TOSS FISH HERE', cx, cy + 7);
     }
 
     // 8. DUAL TOOL RACK (RODS & MOPS)
     else if (station.type === 'rod_rack') {
+      const rx = station.x + station.w / 2;
+      const ry = station.y + station.h - 8;
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(rx - 34, ry - 7, 68, 15, 4);
+      ctx.fill();
+      ctx.stroke();
+
       ctx.fillStyle = '#fde047';
-      ctx.font = 'bold 8px Plus Jakarta Sans';
+      ctx.font = 'bold 9px Plus Jakarta Sans';
       ctx.textAlign = 'center';
-      ctx.fillText('TOOLS 🎣🧹', station.x + station.w / 2, station.y + station.h - 6);
+      ctx.textBaseline = 'middle';
+      ctx.fillText('TOOLS 🎣🧹', rx, ry);
     }
 
     // Render item being processed on the station
@@ -1247,18 +1325,24 @@ export class GameRenderer {
       ctx.stroke();
     }
 
-    // 7. Player Name Tag (placed below feet or above pill)
-    if (!player.holdingItemId) {
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 10px Plus Jakarta Sans';
-      ctx.textAlign = 'center';
-      ctx.fillText(player.name.substring(0, 8), 0, -36 - bobY);
-    } else {
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 10px Plus Jakarta Sans';
-      ctx.textAlign = 'center';
-      ctx.fillText(player.name.substring(0, 8), 0, -56 - bobY);
-    }
+    // 7. Player Name Tag (high-contrast pill with player color accent)
+    const nameStr = (player.name || `P${player.playerIndex + 1}`).substring(0, 10);
+    ctx.font = 'bold 10px Plus Jakarta Sans';
+    const nameW = ctx.measureText(nameStr).width;
+    const tagY = player.holdingItemId ? -58 - bobY : -38 - bobY;
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+    ctx.beginPath();
+    ctx.roundRect(-nameW / 2 - 6, tagY - 8, nameW + 12, 15, 4);
+    ctx.fill();
+    ctx.strokeStyle = player.colorHex || '#38bdf8';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(nameStr, 0, tagY);
 
     // 8. Held Item Visual (overhead carry resting naturally between raised palms)
     if (player.holdingItemId) {

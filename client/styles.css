@@ -41,7 +41,10 @@ body {
 
 /* Canvas responsive scaling */
 #game-canvas {
-  image-rendering: pixelated;
+  image-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   width: auto;
   height: auto;
   max-width: 100%;

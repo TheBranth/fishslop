@@ -1,6 +1,7 @@
 // Tactile Minigames Engine for Friendslop Fishing Co. (9 Minigames: 100% Touch & Mouse Parity)
 
 import { SoundSystem } from './SoundSystem';
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../shared/constants';
 
 export type MinigameType = 
   | 'reel' 
@@ -93,8 +94,8 @@ export class MinigameController {
     // Single Pointer Down (Mouse Left-Click or Mobile Touch)
     const handlePointerDown = (clientX: number, clientY: number) => {
       const rect = this.canvas.getBoundingClientRect();
-      const scaleX = this.canvas.width / rect.width;
-      const scaleY = this.canvas.height / rect.height;
+      const scaleX = CANVAS_WIDTH / rect.width;
+      const scaleY = CANVAS_HEIGHT / rect.height;
       const x = (clientX - rect.left) * scaleX;
       const y = (clientY - rect.top) * scaleY;
 
@@ -103,8 +104,8 @@ export class MinigameController {
 
     const handlePointerMove = (clientX: number, clientY: number) => {
       const rect = this.canvas.getBoundingClientRect();
-      const scaleX = this.canvas.width / rect.width;
-      const scaleY = this.canvas.height / rect.height;
+      const scaleX = CANVAS_WIDTH / rect.width;
+      const scaleY = CANVAS_HEIGHT / rect.height;
       const x = (clientX - rect.left) * scaleX;
       const y = (clientY - rect.top) * scaleY;
 
