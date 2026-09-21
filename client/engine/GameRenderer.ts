@@ -44,6 +44,7 @@ export class GameRenderer {
   }> = {};
   private butterImg: HTMLImageElement | null = null;
   private itemSprites: Record<string, HTMLImageElement> = {};
+  private stationSprites: Record<string, HTMLImageElement> = {};
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -54,6 +55,23 @@ export class GameRenderer {
   private initSprites(): void {
     this.butterImg = new Image();
     this.butterImg.src = '/assets/sprites/hazard_butter_slab.png';
+
+    // Initialize Workstation Sprites
+    const stationMap: Record<string, string> = {
+      cutting_board: '/assets/sprites/stations/station_cutting_board.png',
+      deep_fryer: '/assets/sprites/stations/station_deep_fryer.png',
+      soup_pot: '/assets/sprites/stations/station_soup_pot.png',
+      rinse_station: '/assets/sprites/stations/station_rinse_station.png',
+      rod_rack: '/assets/sprites/stations/station_rod_rack.png',
+      sushi_station: '/assets/sprites/stations/station_sushi_station.png',
+      trash_chute: '/assets/sprites/stations/station_trash_chute.png',
+      cooler: '/assets/sprites/stations/station_cooler.png',
+    };
+    Object.entries(stationMap).forEach(([key, src]) => {
+      const img = new Image();
+      img.src = src;
+      this.stationSprites[key] = img;
+    });
 
     // Initialize Item & Food Sprites
     const itemMap: Record<string, string> = {
@@ -679,411 +697,351 @@ export class GameRenderer {
 
   private drawStation(station: WorkStation): void {
     const { ctx } = this;
+    const now = Date.now();
 
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    // Soft deck shadow underneath counter
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.beginPath();
-    ctx.roundRect(station.x + 3, station.y + 5, station.w, station.h, 10);
+    ctx.ellipse(station.x + station.w / 2, station.y + station.h - 1, station.w / 2 + 2, 7, 0, 0, Math.PI * 2);
     ctx.fill();
+
+    // Determine visual sprite bounds with slight vertical overhang for 2.5D perspective
+    let sx = station.x;
+    let sy = station.y;
+    let sw = station.w;
+    let sh = station.h;
+
+    if (station.type === 'cooler') {
+      sx = station.x - 10;
+      sy = station.y - 20;
+      sw = station.w + 20;
+      sh = station.h + 26;
+    } else if (station.type === 'rod_rack') {
+      sx = station.x - 6;
+      sy = station.y - 12;
+      sw = station.w + 12;
+      sh = station.h + 16;
+    } else if (station.type === 'trash_chute') {
+      sx = station.x - 6;
+      sy = station.y - 8;
+      sw = station.w + 12;
+      sh = station.h + 14;
+    } else if (station.type === 'rinse_station') {
+      // Tall swan-neck faucet needs vertical top clearance
+      sx = station.x - 6;
+      sy = station.y - 20;
+      sw = station.w + 12;
+      sh = station.h + 24;
+    } else {
+      // cutting_board, deep_fryer, soup_pot, sushi_station
+      sx = station.x - 6;
+      sy = station.y - 16;
+      sw = station.w + 12;
+      sh = station.h + 20;
+    }
+
+    // Impact tremor for active chopping minigame
+    let drawOffX = 0;
+    let drawOffY = 0;
+    if (station.heldItem && station.minigameState === 'chopping') {
+      drawOffY = (now % 100 < 50 ? -1.5 : 1.5);
+      drawOffX = (now % 80 < 40 ? -0.8 : 0.8);
+    }
+
+    // Render Station Sprite
+    const spr = this.stationSprites[station.type];
+    if (spr && spr.complete && spr.naturalWidth > 0) {
+      ctx.drawImage(spr, sx + drawOffX, sy + drawOffY, sw, sh);
+    } else {
+      // Fallback procedural base if sprite loading is delayed
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(station.x, station.y, station.w, station.h, 8);
+      ctx.fill();
+      ctx.stroke();
+    }
 
     // Broken / Mismatch penalty overlay
     if (station.isBroken) {
-      ctx.fillStyle = '#451a03';
-      ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 3;
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
       ctx.beginPath();
-      ctx.roundRect(station.x, station.y, station.w, station.h, 10);
+      ctx.roundRect(station.x, station.y, station.w, station.h, 8);
+      ctx.fill();
+
+      // Pulsing repair badge
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(station.x + station.w / 2 - 45, station.y + station.h / 2 - 14, 90, 26, 6);
       ctx.fill();
       ctx.stroke();
 
       ctx.fillStyle = '#f59e0b';
-      ctx.font = 'bold 11px Plus Jakarta Sans';
+      ctx.font = 'bold 9px Plus Jakarta Sans';
       ctx.textAlign = 'center';
-      ctx.fillText('⚠️ BROKEN KNIFE', station.x + station.w / 2, station.y + station.h / 2 - 4);
-      ctx.font = '10px Plus Jakarta Sans';
-      ctx.fillText(`Repairing: ${Math.ceil(station.brokenTimer || 5)}s`, station.x + station.w / 2, station.y + station.h / 2 + 12);
+      ctx.fillText('⚠️ BROKEN KNIFE', station.x + station.w / 2, station.y + station.h / 2 - 2);
+      ctx.font = 'bold 8px Plus Jakarta Sans';
+      ctx.fillText(`Repair: ${Math.ceil(station.brokenTimer || 5)}s`, station.x + station.w / 2, station.y + station.h / 2 + 8);
       return;
     }
 
-    if (station.type === 'cooler') {
-      // Big Central Open Double Door (Fish Hold / Cargo Hatch)
-      ctx.fillStyle = '#0f172a';
-      ctx.strokeStyle = '#475569';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.roundRect(station.x, station.y, station.w, station.h, 10);
-      ctx.fill();
-      ctx.stroke();
+    // Station South Access Foot Mat (Visual clue that stations are operated from the South)
+    const matColors: Record<string, string> = {
+      cutting_board: 'rgba(245, 158, 11, 0.45)', // amber
+      deep_fryer: 'rgba(239, 68, 68, 0.45)',     // red
+      soup_pot: 'rgba(74, 222, 128, 0.45)',       // green
+      rinse_station: 'rgba(56, 189, 248, 0.45)',  // cyan
+      rod_rack: 'rgba(245, 158, 11, 0.35)',       // warm amber
+      sushi_station: 'rgba(192, 132, 252, 0.45)', // purple
+      trash_chute: 'rgba(244, 63, 94, 0.35)',     // rose
+      cooler: 'rgba(56, 189, 248, 0.45)'          // ice cyan
+    };
+    ctx.fillStyle = matColors[station.type] || 'rgba(255, 255, 255, 0.25)';
+    ctx.beginPath();
+    ctx.roundRect(station.x + 8, station.y + station.h - 3, station.w - 16, 3, 2);
+    ctx.fill();
 
-      // Deep dark hold interior
-      const inset = 6;
-      ctx.fillStyle = '#020617';
-      ctx.fillRect(station.x + inset, station.y + inset, station.w - inset * 2, station.h - inset * 2);
-
-      // Open double doors angled back (Left and Right doors)
-      const doorW = (station.w - inset * 2) / 2;
-      const doorH = station.h - inset * 2;
-
-      // Left open door flap
-      ctx.fillStyle = '#1e293b';
-      ctx.strokeStyle = '#64748b';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.roundRect(station.x + inset - 4, station.y + inset, doorW * 0.45, doorH, 4);
-      ctx.fill();
-      ctx.stroke();
-
-      // Right open door flap
-      ctx.beginPath();
-      ctx.roundRect(station.x + station.w - inset - doorW * 0.45 + 4, station.y + inset, doorW * 0.45, doorH, 4);
-      ctx.fill();
-      ctx.stroke();
-
-      // Warning hazard stripes along coaming lip
-      ctx.fillStyle = '#eab308';
-      ctx.fillRect(station.x + 2, station.y + station.h - 8, station.w - 4, 6);
-      ctx.fillStyle = '#000000';
-      for (let sx = station.x + 6; sx < station.x + station.w - 6; sx += 14) {
-        ctx.fillRect(sx, station.y + station.h - 8, 6, 6);
-      }
-
-      // Title & Instruction
-      ctx.fillStyle = '#38bdf8';
-      ctx.font = 'bold 12px Plus Jakarta Sans';
-      ctx.textAlign = 'center';
-      ctx.fillText('FISH HOLD 📦', station.x + station.w / 2, station.y + station.h / 2 - 4);
-      ctx.font = 'bold 9px Plus Jakarta Sans';
-      ctx.fillStyle = '#4ade80';
-      ctx.fillText('DROP OR TOSS FISH HERE', station.x + station.w / 2, station.y + station.h / 2 + 12);
-
-    } else if (station.type === 'cutting_board') {
-      // 🔪 Butcher Block Fillet Counter
-      // Wooden block counter top
-      const woodGrad = ctx.createLinearGradient(station.x, station.y, station.x, station.y + station.h);
-      woodGrad.addColorStop(0, '#d97706');
-      woodGrad.addColorStop(0.3, '#b45309');
-      woodGrad.addColorStop(1, '#78350f');
-      ctx.fillStyle = woodGrad;
-      ctx.strokeStyle = '#fef08a';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.roundRect(station.x, station.y, station.w, station.h, 8);
-      ctx.fill();
-      ctx.stroke();
-
-      // Maple butcher block wood slats
-      ctx.strokeStyle = 'rgba(69, 26, 3, 0.4)';
-      ctx.lineWidth = 1.5;
-      for (let bx = station.x + 14; bx < station.x + station.w - 8; bx += 14) {
-        ctx.beginPath();
-        ctx.moveTo(bx, station.y + 4);
-        ctx.lineTo(bx, station.y + station.h - 4);
-        ctx.stroke();
-      }
-
-      // Inset prep mat
-      ctx.fillStyle = '#fef3c7';
-      ctx.strokeStyle = '#d97706';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.roundRect(station.x + 8, station.y + 6, station.w - 16, station.h - 18, 4);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = '#451a03';
-      ctx.font = 'bold 11px Plus Jakarta Sans';
-      ctx.textAlign = 'center';
-      ctx.fillText('FILLET 🔪', station.x + station.w / 2, station.y + station.h / 2 - 2);
-
-      // South Access Foot Mat Indicator
-      ctx.fillStyle = 'rgba(251, 191, 36, 0.25)';
-      ctx.fillRect(station.x + 10, station.y + station.h - 4, station.w - 20, 3);
-
+    // 1. CUTTING BOARD / FILLET ACTIVE STATE
+    if (station.type === 'cutting_board') {
       if (station.heldItem && station.minigameState === 'chopping') {
         const count = station.chopCount || 0;
+        // Flying fish flakes / sparkles during chopping
         ctx.fillStyle = '#fef08a';
-        ctx.font = 'bold 10px Plus Jakarta Sans';
-        ctx.fillText(`CHOP: ${count}/3 (Action!)`, station.x + station.w / 2, station.y - 12);
+        for (let f = 0; f < 4; f++) {
+          const fx = station.x + station.w / 2 + Math.cos(now * 0.015 + f * 1.5) * (14 + f * 4);
+          const fy = station.y + station.h / 2 - 4 + Math.sin(now * 0.012 + f * 1.8) * 8;
+          ctx.beginPath();
+          ctx.arc(fx, fy, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
 
+        // Chop Progress Indicator Pill
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.roundRect(station.x + station.w / 2 - 45, station.y - 18, 90, 16, 8);
+        ctx.fill();
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.fillStyle = '#fef08a';
+        ctx.font = 'bold 9px Plus Jakarta Sans';
+        ctx.textAlign = 'center';
+        ctx.fillText(`CHOP: ${count}/3 (Action!)`, station.x + station.w / 2, station.y - 7);
+
+        // 3 Pip Dots
         for (let i = 0; i < 3; i++) {
           ctx.fillStyle = i < count ? '#22c55e' : '#475569';
           ctx.beginPath();
-          ctx.arc(station.x + 22 + i * 14, station.y + station.h - 7, 4, 0, Math.PI * 2);
+          ctx.arc(station.x + 22 + i * 14, station.y + station.h - 8, 3.5, 0, Math.PI * 2);
           ctx.fill();
         }
       }
+    }
 
-    } else if (station.type === 'deep_fryer') {
-      // 🍳 Industrial Stainless Steel Deep Fryer
-      const steelGrad = ctx.createLinearGradient(station.x, station.y, station.x + station.w, station.y);
-      steelGrad.addColorStop(0, '#475569');
-      steelGrad.addColorStop(0.5, '#94a3b8');
-      steelGrad.addColorStop(1, '#334155');
-      ctx.fillStyle = steelGrad;
-      ctx.strokeStyle = '#f87171';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.roundRect(station.x, station.y, station.w, station.h, 8);
-      ctx.fill();
-      ctx.stroke();
-
-      // Boiling Golden Oil Vat
-      ctx.fillStyle = '#ca8a04';
-      ctx.beginPath();
-      ctx.roundRect(station.x + 8, station.y + 6, station.w - 16, station.h - 18, 5);
-      ctx.fill();
-
-      // Animated hot oil bubbling bubbles
-      const bubbleT = Date.now() * 0.005;
-      ctx.fillStyle = '#fef08a';
-      for (let b = 0; b < 4; b++) {
-        const bx = station.x + 14 + ((b * 15 + bubbleT * 20) % (station.w - 28));
-        const by = station.y + 12 + Math.sin(bubbleT + b * 2) * 5;
+    // 2. DEEP FRYER ACTIVE STATE
+    else if (station.type === 'deep_fryer') {
+      // Golden oil sizzling bubbles
+      const bubbleT = now * 0.006;
+      ctx.fillStyle = 'rgba(254, 240, 138, 0.85)';
+      for (let b = 0; b < 5; b++) {
+        const bx = station.x + 16 + ((b * 13 + bubbleT * 25) % (station.w - 32));
+        const by = station.y + 16 + Math.sin(bubbleT + b * 2) * 4;
         ctx.beginPath();
-        ctx.arc(bx, by, 2.5, 0, Math.PI * 2);
+        ctx.arc(bx, by, 2, 0, Math.PI * 2);
         ctx.fill();
       }
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 11px Plus Jakarta Sans';
-      ctx.textAlign = 'center';
-      ctx.fillText('FRYER 🍳', station.x + station.w / 2, station.y + station.h / 2 - 2);
-
-      // South Access Foot Mat Indicator
-      ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
-      ctx.fillRect(station.x + 10, station.y + station.h - 4, station.w - 20, 3);
 
       if (station.heldItem && station.minigameState === 'frying') {
         const heat = station.fryHeat || 0;
         const barW = station.w - 16;
-        const barH = 6;
+        const barH = 7;
         const barX = station.x + 8;
-        const barY = station.y + station.h - 10;
+        const barY = station.y - 14;
 
+        // Thermometer background
         ctx.fillStyle = '#0f172a';
-        ctx.fillRect(barX, barY, barW, barH);
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, barW, barH, 4);
+        ctx.fill();
 
-        ctx.fillStyle = '#22c55e';
+        // Perfect pull zone (55% to 90%)
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.7)';
         ctx.fillRect(barX + barW * 0.55, barY, barW * 0.35, barH);
 
+        // Current heat fill
         ctx.fillStyle = heat > 0.90 ? '#ef4444' : heat > 0.55 ? '#facc15' : '#38bdf8';
-        ctx.fillRect(barX, barY, barW * Math.min(1, heat), barH);
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, barW * Math.min(1, heat), barH, 4);
+        ctx.fill();
 
+        // Sizzle heat prompt
         ctx.font = 'bold 9px Plus Jakarta Sans';
-        ctx.fillStyle = heat > 0.55 && heat < 0.90 ? '#facc15' : '#f87171';
-        ctx.fillText(heat > 0.55 && heat < 0.90 ? '✨ PULL NOW! ✨' : heat > 0.90 ? '🔥 BURNING!' : 'Sizzling...', station.x + station.w / 2, station.y - 12);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = heat > 0.55 && heat < 0.90 ? '#facc15' : heat > 0.90 ? '#f87171' : '#38bdf8';
+        ctx.fillText(heat > 0.55 && heat < 0.90 ? '✨ PULL NOW! ✨' : heat > 0.90 ? '🔥 BURNING!' : 'Sizzling...', station.x + station.w / 2, station.y - 18);
+
+        // Rising steam wisps
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        for (let s = 0; s < 3; s++) {
+          const sy = station.y - 4 - ((now * 0.03 + s * 10) % 20);
+          const sx = station.x + 20 + s * 15 + Math.sin(now * 0.005 + s) * 3;
+          ctx.beginPath();
+          ctx.arc(sx, sy, 2 + s, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
+    }
 
-    } else if (station.type === 'soup_pot') {
-      // 🍲 Cast Iron Chowder Kettle
-      ctx.fillStyle = '#1e293b';
-      ctx.strokeStyle = '#4ade80';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.roundRect(station.x, station.y, station.w, station.h, 8);
-      ctx.fill();
-      ctx.stroke();
-
-      // Simmering green chowder kettle bowl
-      ctx.fillStyle = '#15803d';
-      ctx.beginPath();
-      ctx.arc(station.x + station.w / 2, station.y + station.h / 2, 22, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#86efac';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Swirling steam / bubble particles
-      const swirlT = Date.now() * 0.004;
-      ctx.fillStyle = '#bbf7d0';
+    // 3. SOUP POT / CHOWDER CAULDRON ACTIVE STATE
+    else if (station.type === 'soup_pot') {
+      // Swirling aromatic steam plumes
+      const swirlT = now * 0.004;
+      ctx.fillStyle = 'rgba(187, 247, 208, 0.5)';
       for (let s = 0; s < 3; s++) {
         const ang = swirlT + (s * (Math.PI * 2 / 3));
+        const px = station.x + station.w / 2 + Math.cos(ang) * 9;
+        const py = station.y + station.h / 2 - 2 + Math.sin(ang) * 6;
         ctx.beginPath();
-        ctx.arc(station.x + station.w / 2 + Math.cos(ang) * 9, station.y + station.h / 2 + Math.sin(ang) * 9, 3, 0, Math.PI * 2);
+        ctx.arc(px, py, 2.5, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 10px Plus Jakarta Sans';
-      ctx.textAlign = 'center';
-      ctx.fillText('SOUP 🍲', station.x + station.w / 2, station.y + station.h / 2 - 1);
-
-      // South Access Foot Mat Indicator
-      ctx.fillStyle = 'rgba(74, 222, 128, 0.3)';
-      ctx.fillRect(station.x + 10, station.y + station.h - 4, station.w - 20, 3);
+      // Rising steam
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      const steamY = station.y - 2 - ((now * 0.02) % 18);
+      ctx.beginPath();
+      ctx.arc(station.x + station.w / 2, steamY, 3.5, 0, Math.PI * 2);
+      ctx.fill();
 
       if (station.heldItem && station.minigameState === 'stirring') {
         const swirls = station.stirSwirls || 0;
+        // Stir progress pill
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.roundRect(station.x + station.w / 2 - 45, station.y - 18, 90, 16, 8);
+        ctx.fill();
+        ctx.strokeStyle = '#4ade80';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
         ctx.fillStyle = '#86efac';
-        ctx.font = 'bold 10px Plus Jakarta Sans';
-        ctx.fillText(`STIR: ${swirls}/3 (Action!)`, station.x + station.w / 2, station.y - 12);
+        ctx.font = 'bold 9px Plus Jakarta Sans';
+        ctx.textAlign = 'center';
+        ctx.fillText(`STIR: ${swirls}/3 (Action!)`, station.x + station.w / 2, station.y - 7);
 
         for (let i = 0; i < 3; i++) {
           ctx.fillStyle = i < swirls ? '#22c55e' : '#475569';
           ctx.beginPath();
-          ctx.arc(station.x + 22 + i * 14, station.y + station.h - 7, 4, 0, Math.PI * 2);
+          ctx.arc(station.x + 22 + i * 14, station.y + station.h - 8, 3.5, 0, Math.PI * 2);
           ctx.fill();
         }
       }
+    }
 
-    } else if (station.type === 'rod_rack') {
-      // 🎣 & 🧹 Dual Utility Tool Rack (Rods & Mops)
-      const rackGrad = ctx.createLinearGradient(station.x, station.y, station.x + station.w, station.y);
-      rackGrad.addColorStop(0, '#78350f');
-      rackGrad.addColorStop(0.5, '#92400e');
-      rackGrad.addColorStop(1, '#451a03');
-      ctx.fillStyle = rackGrad;
-      ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 2.5;
+    // 4. RINSE BASIN ACTIVE STATE
+    else if (station.type === 'rinse_station') {
+      // Sparkling water shimmer inside basin
+      const ripple = Math.sin(now * 0.005) * 1.5;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.roundRect(station.x, station.y, station.w, station.h, 6);
-      ctx.fill();
+      ctx.arc(station.x + station.w / 2, station.y + station.h / 2, 7 + ripple, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Fishing rod on left
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.moveTo(station.x + 14, station.y + station.h - 10);
-      ctx.lineTo(station.x + 14, station.y + 8);
-      ctx.stroke();
+      // Bubbly soap suds on left tray
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      for (let sb = 0; sb < 3; sb++) {
+        const bx = station.x + 8 + sb * 4;
+        const by = station.y + station.h / 2 + Math.sin(now * 0.004 + sb) * 2;
+        ctx.beginPath();
+        ctx.arc(bx, by, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
-      // Cork grip
-      ctx.fillStyle = '#fde68a';
-      ctx.fillRect(station.x + 12, station.y + station.h - 22, 4, 12);
-
-      // Deck Mop with yellow bucket on right
-      // Mop handle
-      ctx.strokeStyle = '#e2e8f0';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.moveTo(station.x + 38, station.y + station.h - 14);
-      ctx.lineTo(station.x + 38, station.y + 6);
-      ctx.stroke();
-
-      // Mop string head
-      ctx.fillStyle = '#f1f5f9';
-      ctx.fillRect(station.x + 34, station.y + station.h - 24, 8, 10);
-
-      // Yellow mop bucket
-      ctx.fillStyle = '#eab308';
-      ctx.strokeStyle = '#ca8a04';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.roundRect(station.x + 30, station.y + station.h - 18, 16, 14, 3);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 9px Plus Jakarta Sans';
-      ctx.textAlign = 'center';
-      ctx.fillText('TOOLS 🎣🧹', station.x + station.w / 2, station.y + 20);
-
-    } else if (station.type === 'rinse_station') {
-      // 🧼 Sanitary Wash Basin Counter
-      const basinGrad = ctx.createLinearGradient(station.x, station.y, station.x, station.y + station.h);
-      basinGrad.addColorStop(0, '#0284c7');
-      basinGrad.addColorStop(1, '#0369a1');
-      ctx.fillStyle = basinGrad;
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.roundRect(station.x, station.y, station.w, station.h, 8);
-      ctx.fill();
-      ctx.stroke();
-
-      // Ceramic White Basin Bowl with bubbling water
-      ctx.fillStyle = '#f8fafc';
-      ctx.beginPath();
-      ctx.ellipse(station.x + station.w / 2, station.y + station.h / 2 - 2, station.w / 2 - 12, station.h / 2 - 10, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Fresh clear water inside
-      ctx.fillStyle = 'rgba(56, 189, 248, 0.65)';
-      ctx.beginPath();
-      ctx.ellipse(station.x + station.w / 2, station.y + station.h / 2 - 2, station.w / 2 - 16, station.h / 2 - 13, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Chrome faucet tap
-      ctx.strokeStyle = '#cbd5e1';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(station.x + station.w / 2, station.y + 6);
-      ctx.lineTo(station.x + station.w / 2, station.y + 16);
-      ctx.stroke();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 9px Plus Jakarta Sans';
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 8px Plus Jakarta Sans';
       ctx.textAlign = 'center';
       ctx.fillText('WASH 🧼', station.x + station.w / 2, station.y + station.h - 6);
+    }
 
-      // South Access Foot Mat Indicator
-      ctx.fillStyle = 'rgba(56, 189, 248, 0.3)';
-      ctx.fillRect(station.x + 10, station.y + station.h - 3, station.w - 20, 3);
-
-    } else if (station.type === 'sushi_station') {
-      // 🍣 Bamboo Sushi Rolling Mat
-      ctx.fillStyle = '#3b0764';
-      ctx.strokeStyle = '#c084fc';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.roundRect(station.x, station.y, station.w, station.h, 8);
-      ctx.fill();
-      ctx.stroke();
-
-      // Bamboo mat slats
-      ctx.fillStyle = '#fef08a';
-      ctx.fillRect(station.x + 8, station.y + 8, station.w - 16, station.h - 20);
-      ctx.strokeStyle = '#ca8a04';
-      ctx.lineWidth = 1;
-      for (let my = station.y + 12; my < station.y + station.h - 14; my += 5) {
+    // 5. BAMBOO SUSHI ROLLING MAT ACTIVE STATE
+    else if (station.type === 'sushi_station') {
+      if (station.heldItem && station.minigameState === 'chopping') {
+        const count = station.chopCount || 0;
+        ctx.fillStyle = '#0f172a';
         ctx.beginPath();
-        ctx.moveTo(station.x + 8, my);
-        ctx.lineTo(station.x + station.w - 8, my);
+        ctx.roundRect(station.x + station.w / 2 - 45, station.y - 18, 90, 16, 8);
+        ctx.fill();
+        ctx.strokeStyle = '#c084fc';
+        ctx.lineWidth = 1.5;
         ctx.stroke();
+
+        ctx.fillStyle = '#f3e8ff';
+        ctx.font = 'bold 9px Plus Jakarta Sans';
+        ctx.textAlign = 'center';
+        ctx.fillText(`ROLL: ${count}/3 (Action!)`, station.x + station.w / 2, station.y - 7);
+
+        for (let i = 0; i < 3; i++) {
+          ctx.fillStyle = i < count ? '#a855f7' : '#475569';
+          ctx.beginPath();
+          ctx.arc(station.x + 22 + i * 14, station.y + station.h - 8, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else {
+        ctx.fillStyle = '#c084fc';
+        ctx.font = 'bold 8px Plus Jakarta Sans';
+        ctx.textAlign = 'center';
+        ctx.fillText('SUSHI 🍣', station.x + station.w / 2, station.y + station.h - 6);
       }
+    }
+
+    // 6. OVERBOARD TRASH CHUTE
+    else if (station.type === 'trash_chute') {
+      // Foaming dark ocean churning underneath safety grill
+      const foam = Math.sin(now * 0.005) * 2;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.beginPath();
+      ctx.arc(station.x + station.w / 2 + foam, station.y + station.h / 2, 4, 0, Math.PI * 2);
+      ctx.fill();
 
       ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 8px Plus Jakarta Sans';
+      ctx.textAlign = 'center';
+      ctx.fillText('TRASH 🗑️', station.x + station.w / 2, station.y + station.h - 6);
+    }
+
+    // 7. FISH HOLD / COOLER (CENTRAL CARGO HATCH)
+    else if (station.type === 'cooler') {
+      // Ice crystals sparkle
+      ctx.fillStyle = '#ffffff';
+      for (let ic = 0; ic < 4; ic++) {
+        const sparkle = Math.sin(now * 0.006 + ic * 1.5);
+        if (sparkle > 0.4) {
+          const ix = station.x + 28 + ic * 20;
+          const iy = station.y + 36 + Math.cos(ic * 2) * 12;
+          ctx.fillRect(ix, iy, 2, 2);
+        }
+      }
+
+      ctx.fillStyle = '#38bdf8';
       ctx.font = 'bold 11px Plus Jakarta Sans';
       ctx.textAlign = 'center';
-      ctx.fillText('SUSHI 🍣', station.x + station.w / 2, station.y + station.h / 2 - 1);
+      ctx.fillText('FISH HOLD 📦', station.x + station.w / 2, station.y + station.h / 2 - 2);
+      ctx.font = 'bold 8px Plus Jakarta Sans';
+      ctx.fillStyle = '#4ade80';
+      ctx.fillText('DROP OR TOSS FISH HERE', station.x + station.w / 2, station.y + station.h / 2 + 12);
+    }
 
-      // South Access Foot Mat Indicator
-      ctx.fillStyle = 'rgba(192, 132, 252, 0.3)';
-      ctx.fillRect(station.x + 10, station.y + station.h - 4, station.w - 20, 3);
-
-    } else if (station.type === 'trash_chute') {
-      // 🗑️ Heavy Steel Overboard Trash Chute with Safety Grate
-      const chuteGrad = ctx.createLinearGradient(station.x, station.y, station.x, station.y + station.h);
-      chuteGrad.addColorStop(0, '#475569');
-      chuteGrad.addColorStop(1, '#0f172a');
-      ctx.fillStyle = chuteGrad;
-      ctx.strokeStyle = '#f43f5e';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.roundRect(station.x, station.y, station.w, station.h, 8);
-      ctx.fill();
-      ctx.stroke();
-
-      // Open dark chute interior hole leading to ocean
-      ctx.fillStyle = '#020617';
-      ctx.beginPath();
-      ctx.roundRect(station.x + 8, station.y + 6, station.w - 16, station.h - 14, 4);
-      ctx.fill();
-
-      // Steel safety bars over chute
-      ctx.strokeStyle = '#64748b';
-      ctx.lineWidth = 2;
-      for (let gx = station.x + 18; gx < station.x + station.w - 12; gx += 16) {
-        ctx.beginPath();
-        ctx.moveTo(gx, station.y + 6);
-        ctx.lineTo(gx, station.y + station.h - 8);
-        ctx.stroke();
-      }
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 10px Plus Jakarta Sans';
+    // 8. DUAL TOOL RACK (RODS & MOPS)
+    else if (station.type === 'rod_rack') {
+      ctx.fillStyle = '#fde047';
+      ctx.font = 'bold 8px Plus Jakarta Sans';
       ctx.textAlign = 'center';
-      ctx.fillText('TRASH 🗑️', station.x + station.w / 2, station.y + station.h / 2 - 2);
+      ctx.fillText('TOOLS 🎣🧹', station.x + station.w / 2, station.y + station.h - 6);
     }
 
     // Render item being processed on the station
