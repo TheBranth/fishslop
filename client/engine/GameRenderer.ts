@@ -712,32 +712,31 @@ export class GameRenderer {
     let sh = station.h;
 
     if (station.type === 'cooler') {
-      sx = station.x - 10;
-      sy = station.y - 20;
-      sw = station.w + 20;
-      sh = station.h + 26;
+      sx = station.x - 4;
+      sy = station.y - 6;
+      sw = station.w + 8;
+      sh = station.h + 10;
     } else if (station.type === 'rod_rack') {
-      sx = station.x - 6;
-      sy = station.y - 12;
-      sw = station.w + 12;
-      sh = station.h + 16;
+      sx = station.x - 4;
+      sy = station.y - 6;
+      sw = station.w + 8;
+      sh = station.h + 10;
     } else if (station.type === 'trash_chute') {
-      sx = station.x - 6;
-      sy = station.y - 8;
-      sw = station.w + 12;
-      sh = station.h + 14;
+      sx = station.x - 4;
+      sy = station.y - 4;
+      sw = station.w + 8;
+      sh = station.h + 8;
     } else if (station.type === 'rinse_station') {
-      // Tall swan-neck faucet needs vertical top clearance
-      sx = station.x - 6;
-      sy = station.y - 20;
-      sw = station.w + 12;
-      sh = station.h + 24;
+      sx = station.x - 4;
+      sy = station.y - 10;
+      sw = station.w + 8;
+      sh = station.h + 14;
     } else {
       // cutting_board, deep_fryer, soup_pot, sushi_station
-      sx = station.x - 6;
-      sy = station.y - 16;
-      sw = station.w + 12;
-      sh = station.h + 20;
+      sx = station.x - 4;
+      sy = station.y - 6;
+      sw = station.w + 8;
+      sh = station.h + 10;
     }
 
     // Impact tremor for active chopping minigame

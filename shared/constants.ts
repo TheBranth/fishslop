@@ -100,7 +100,7 @@ export const ROGUELITE_LEVELS: RogueliteLevel[] = [
       bombfish: 0.00,
       kraken: 0.00
     },
-    unlockedStations: ['cooler']
+    unlockedStations: ['cooler', 'cutting_board']
   },
   {
     levelNumber: 2,
