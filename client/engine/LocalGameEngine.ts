@@ -707,80 +707,16 @@ export class LocalGameEngine {
 
       // Trash Chute Deposit (for Harbor Cleanup contract and disposing hazardous waste)
       if (chute && this.isItemInStation(item, chute)) {
-        this.onEvent?.('sfx', 'drop');
-        this.addFeedMessage(`🗑️ Discarded ${item.name} into Overboard Chute!`, 'info');
-
-        if (this.activeCorporateContract && this.activeCorporateContract.id === 'contract_harbor_cleanup' && item.speciesId === 'boot') {
-          this.advanceContract(1, 'Boot Discarded');
-        }
-
-        state.items.splice(i, 1);
+        this.discardItemIntoTrashChute(item);
         continue;
       }
 
       // Cooler Box Deposit
       if (cooler && this.isItemInStation(item, cooler)) {
-        state.teamCash += item.value;
-        this.levelTeamCashEarned += item.value;
-        this.onEvent?.('sfx', 'ding');
-        this.onEvent?.('popup', '', { text: `+$${item.value}!`, color: '#22c55e', x: cooler.x + cooler.w / 2, y: cooler.y - 10 });
-        this.addFeedMessage(`💵 Banked ${item.name} for +$${item.value}!`, 'score');
-
-        // Evaluate Corporate Contract Rules & Penalties
-        if (this.activeCorporateContract && !this.activeCorporateContract.isCompleted && !this.activeCorporateContract.isFailed) {
-          const c = this.activeCorporateContract;
-
-          if (c.id === 'contract_fresh_batch') {
-            if (!item.isSoiled) {
-              this.advanceContract(item.mass, `${item.mass}kg Clean Fish`);
-            } else {
-              this.addFeedMessage(`⚠️ Soiled fish yielded 0kg contract credit! Rinse first.`, 'hazard');
-            }
-          } else if (c.id === 'contract_sanitary_specimen') {
-            if (item.isSoiled) {
-              c.currentCount = Math.max(0, c.currentCount - 2);
-              this.onEvent?.('sfx', 'slap');
-              this.addFeedMessage(`⚠️ Soiled fish docked contract progress by -2! (${c.currentCount}/${c.targetCount})`, 'hazard');
-              this.onContractUpdate?.(c);
-            } else {
-              this.advanceContract(1, 'Clean Fish');
-            }
-          } else if (c.id === 'contract_selective_sorting') {
-            if (item.speciesId === 'guppy' || item.speciesId === 'tuna' || item.speciesId === 'ray') {
-              this.advanceContract(1, 'Scaled Fish');
-            } else if (item.speciesId === 'boot' || item.speciesId === 'turtle' || item.speciesId === 'bombfish') {
-              c.currentCount = Math.max(0, c.currentCount - 1);
-              this.onEvent?.('sfx', 'slap');
-              this.addFeedMessage(`⚠️ Non-scaled catch docked contract by -1! (${c.currentCount}/${c.targetCount})`, 'hazard');
-              this.onContractUpdate?.(c);
-            }
-          } else if (c.id === 'contract_harbor_cleanup') {
-            if (item.speciesId === 'boot') {
-              state.teamCash = Math.max(0, state.teamCash - 25);
-              this.onEvent?.('sfx', 'slap');
-              this.addFeedMessage(`⚠️ Boot in Cooler! -$25 penalty! Use Trash Chute.`, 'hazard');
-            }
-          } else if (c.id === 'contract_sashimi_express' || c.id === 'contract_surgical_slices') {
-            if (item.type === 'fillet') {
-              this.advanceContract(1, 'Sashimi Fillet');
-            }
-          } else if (c.id === 'contract_crispy_platter' || c.id === 'contract_gary_snack') {
-            if (item.type === 'fried_dish') {
-              this.advanceContract(1, 'Fried Dish');
-            }
-          } else if (c.id === 'contract_billionaire_chowder' || c.id === 'contract_seafood_gumbo') {
-            if (item.type === 'soup') {
-              this.advanceContract(1, 'Seafood Soup');
-            }
-          }
-        }
-
-        // Credit thief bounty check in final 5 seconds
-        if (this.levelTimeLeft <= 5.0) {
-          this.checkBounties('credit_thief', {});
-        }
-
-        state.items.splice(i, 1);
+        const depositingPlayer = item.lastHeldByPlayerId
+          ? this.state.players.find(p => p.id === item.lastHeldByPlayerId)
+          : undefined;
+        this.depositItemIntoCooler(item, depositingPlayer);
         continue;
       }
 
@@ -1093,6 +1029,7 @@ export class LocalGameEngine {
           nearStation.minigameState = 'idle';
           item.isHeld = true;
           item.heldByPlayerId = p.id;
+          item.lastHeldByPlayerId = p.id;
           p.holdingItemId = item.id;
           this.onEvent?.('sfx', 'pickup');
 
@@ -1176,8 +1113,26 @@ export class LocalGameEngine {
         return;
       }
 
+      // Direct Bank Item into Cooler Box
+      if (nearStation.type === 'cooler' && p.holdingItemId) {
+        const held = this.state.items.find(i => i.id === p.holdingItemId);
+        if (held) {
+          this.depositItemIntoCooler(held, p);
+        }
+        return;
+      }
+
+      // Direct Discard Item into Trash Chute
+      if (nearStation.type === 'trash_chute' && p.holdingItemId) {
+        const held = this.state.items.find(i => i.id === p.holdingItemId);
+        if (held) {
+          this.discardItemIntoTrashChute(held, p);
+        }
+        return;
+      }
+
       // Load fish into station (Validates against Mismatch Rules!)
-      if (p.holdingItemId && !nearStation.heldItem && nearStation.type !== 'cooler' && nearStation.type !== 'rod_rack') {
+      if (p.holdingItemId && !nearStation.heldItem && nearStation.type !== 'cooler' && nearStation.type !== 'trash_chute' && nearStation.type !== 'rod_rack') {
         const held = this.state.items.find(i => i.id === p.holdingItemId);
         if (held) {
           const validation = validateStationInteraction(nearStation.type, held);
@@ -1286,6 +1241,7 @@ export class LocalGameEngine {
       const item = nearest as EntityItem;
       item.isHeld = true;
       item.heldByPlayerId = p.id;
+      item.lastHeldByPlayerId = p.id;
       p.holdingItemId = item.id;
       this.onEvent?.('sfx', 'pickup');
 
@@ -1382,6 +1338,101 @@ export class LocalGameEngine {
     });
   }
 
+  public depositItemIntoCooler(item: EntityItem, player?: PlayerState): void {
+    this.state.teamCash += item.value;
+    this.levelTeamCashEarned += item.value;
+    if (player) {
+      player.totalLegalQuotaContributed += item.value;
+      player.totalFishBanked++;
+      player.holdingItemId = null;
+    }
+    const cooler = this.state.stations.find(s => s.type === 'cooler');
+    const cx = cooler ? cooler.x + cooler.w / 2 : 480;
+    const cy = cooler ? cooler.y - 10 : 250;
+
+    this.onEvent?.('sfx', 'ding');
+    this.onEvent?.('popup', '', { text: `+$${item.value}!`, color: '#22c55e', x: cx, y: cy });
+    this.addFeedMessage(`💵 ${player ? player.name + ' banked' : 'Banked'} ${item.name} for +$${item.value}!`, 'score');
+
+    // Evaluate Corporate Contract Rules & Penalties
+    if (this.activeCorporateContract && !this.activeCorporateContract.isCompleted && !this.activeCorporateContract.isFailed) {
+      const c = this.activeCorporateContract;
+
+      if (c.id === 'contract_fresh_batch') {
+        if (!item.isSoiled) {
+          this.advanceContract(item.mass, `${item.mass}kg Clean Fish`);
+        } else {
+          this.addFeedMessage(`⚠️ Soiled fish yielded 0kg contract credit! Rinse first.`, 'hazard');
+        }
+      } else if (c.id === 'contract_sanitary_specimen') {
+        if (item.isSoiled) {
+          c.currentCount = Math.max(0, c.currentCount - 2);
+          this.onEvent?.('sfx', 'slap');
+          this.addFeedMessage(`⚠️ Soiled fish docked contract progress by -2! (${c.currentCount}/${c.targetCount})`, 'hazard');
+          this.onContractUpdate?.(c);
+        } else {
+          this.advanceContract(1, 'Clean Fish');
+        }
+      } else if (c.id === 'contract_selective_sorting') {
+        if (item.speciesId === 'guppy' || item.speciesId === 'tuna' || item.speciesId === 'ray') {
+          this.advanceContract(1, 'Scaled Fish');
+        } else if (item.speciesId === 'boot' || item.speciesId === 'turtle' || item.speciesId === 'bombfish') {
+          c.currentCount = Math.max(0, c.currentCount - 1);
+          this.onEvent?.('sfx', 'slap');
+          this.addFeedMessage(`⚠️ Non-scaled catch docked contract by -1! (${c.currentCount}/${c.targetCount})`, 'hazard');
+          this.onContractUpdate?.(c);
+        }
+      } else if (c.id === 'contract_harbor_cleanup') {
+        if (item.speciesId === 'boot') {
+          this.state.teamCash = Math.max(0, this.state.teamCash - 25);
+          this.levelTeamCashEarned = Math.max(0, this.levelTeamCashEarned - 25);
+          if (player) player.totalLegalQuotaContributed = Math.max(0, player.totalLegalQuotaContributed - 25);
+          this.onEvent?.('sfx', 'slap');
+          this.addFeedMessage(`⚠️ Boot in Cooler! -$25 penalty! Use Trash Chute.`, 'hazard');
+        }
+      } else if (c.id === 'contract_sashimi_express' || c.id === 'contract_surgical_slices') {
+        if (item.type === 'fillet') {
+          this.advanceContract(1, 'Sashimi Fillet');
+        }
+      } else if (c.id === 'contract_crispy_platter' || c.id === 'contract_gary_snack') {
+        if (item.type === 'fried_dish') {
+          this.advanceContract(1, 'Fried Dish');
+        }
+      } else if (c.id === 'contract_billionaire_chowder' || c.id === 'contract_seafood_gumbo') {
+        if (item.type === 'soup') {
+          this.advanceContract(1, 'Seafood Soup');
+        }
+      }
+    }
+
+    // Credit thief bounty check in final 5 seconds
+    if (this.levelTimeLeft <= 5.0) {
+      this.checkBounties('credit_thief', {});
+    }
+
+    this.state.items = this.state.items.filter(i => i.id !== item.id);
+  }
+
+  public discardItemIntoTrashChute(item: EntityItem, player?: PlayerState): void {
+    if (player) {
+      player.holdingItemId = null;
+    }
+    const chute = this.state.stations.find(s => s.type === 'trash_chute');
+    const cx = chute ? chute.x + chute.w / 2 : 480;
+    const cy = chute ? chute.y - 10 : 440;
+
+    this.onEvent?.('sfx', 'drop');
+    this.onEvent?.('popup', '', { text: 'TRASHED', color: '#f43f5e', x: cx, y: cy });
+    this.addFeedMessage(`🗑️ Discarded ${item.name} into Overboard Chute!`, 'info');
+
+    if (this.activeCorporateContract && this.activeCorporateContract.id === 'contract_harbor_cleanup' && item.speciesId === 'boot') {
+      this.advanceContract(1, 'Boot Discarded');
+    }
+
+    this.checkBounties('drop_overboard', { item });
+    this.state.items = this.state.items.filter(i => i.id !== item.id);
+  }
+
   private completeStation(station: WorkStation, player: PlayerState): void {
     if (!station.heldItem) return;
     const item = station.heldItem;
@@ -1400,7 +1451,6 @@ export class LocalGameEngine {
       station.minigameState = 'idle';
 
       player.totalDishesCooked++;
-      player.totalLegalQuotaContributed += item.value;
 
       this.onEvent?.('sfx', 'ding');
       this.onEvent?.('popup', '', { text: `✨ +$${item.value} ${item.name}!`, color: '#facc15', x: station.x + station.w / 2, y: station.y - 15 });
@@ -1859,10 +1909,10 @@ export class LocalGameEngine {
   }
 
   private computeEndgameAudit(): EndgameAuditRecord[] {
-    let topLegal = -1;
-    let topSaboteur = -1;
-    let mvpIndex = 0;
-    let ratIndex = 0;
+    let topLegal = 0;
+    let topSaboteur = 0;
+    let mvpIndex = -1;
+    let ratIndex = -1;
 
     const records: EndgameAuditRecord[] = this.state.players.map((p, idx) => {
       if (p.totalLegalQuotaContributed > topLegal) {
@@ -1880,14 +1930,23 @@ export class LocalGameEngine {
         colorHex: p.colorHex,
         totalQuotaContributed: p.totalLegalQuotaContributed,
         totalMeritPoints: p.totalSecretMeritPoints,
-        completedBounties: [],
+        totalFishBanked: p.totalFishBanked,
+        totalDishesCooked: p.totalDishesCooked,
+        completedBounties: p.completedBountiesList || [],
         isEmployeeOfTheRun: false,
         isUncleGaryGoldenRat: false
       };
     });
 
-    if (records[mvpIndex]) records[mvpIndex].isEmployeeOfTheRun = true;
-    if (records[ratIndex]) records[ratIndex].isUncleGaryGoldenRat = true;
+    if (mvpIndex >= 0 && topLegal > 0 && records[mvpIndex]) {
+      records[mvpIndex].isEmployeeOfTheRun = true;
+    } else if (records.length > 0 && records[0].totalQuotaContributed > 0) {
+      records[0].isEmployeeOfTheRun = true;
+    }
+
+    if (ratIndex >= 0 && topSaboteur > 0 && records[ratIndex]) {
+      records[ratIndex].isUncleGaryGoldenRat = true;
+    }
 
     return records;
   }
@@ -1919,6 +1978,14 @@ export class LocalGameEngine {
         b.isCompleted = true;
         const totalPoints = b.baseRewardPoints * b.assignedLevelTier;
         p.totalSecretMeritPoints += totalPoints;
+        if (!p.completedBountiesList) {
+          p.completedBountiesList = [];
+        }
+        p.completedBountiesList.push({
+          title: b.title,
+          levelTier: b.assignedLevelTier,
+          points: totalPoints
+        });
         this.onEvent?.('sfx', 'bounty_complete');
         this.addFeedMessage(`💰 BOUNTY COMPLETE! ${p.name} earned +${totalPoints} Merit Points!`, 'score');
         if (p.id === 'p1') {
@@ -2134,7 +2201,7 @@ export class LocalGameEngine {
     this.state.items = [];
     this.state.draftState = null;
     this.state.krakenBoss = null;
-    this.unlockedStations = new Set(['cooler']);
+    this.unlockedStations = new Set(['cooler', 'trash_chute']);
     this.activePerks.clear();
     this.state.stations = this.buildCurrentStations();
     this.state.players.forEach((p, i) => {
@@ -2147,6 +2214,7 @@ export class LocalGameEngine {
       p.totalDishesCooked = 0;
       p.totalLegalQuotaContributed = 0;
       p.totalSecretMeritPoints = 0;
+      p.completedBountiesList = [];
     });
     this.refreshAllBounties();
     this.addFeedMessage('🔄 15-Minute Roguelite Run Reset! Level 1: Sweetwater Shallows.', 'info');

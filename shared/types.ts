@@ -65,6 +65,7 @@ export interface PlayerState {
   totalDishesCooked: number;
   totalLegalQuotaContributed: number;
   totalSecretMeritPoints: number;
+  completedBountiesList?: { title: string; levelTier: number; points: number }[];
 }
 
 export interface OceanFishShadow {
@@ -140,6 +141,7 @@ export interface EntityItem {
   mass: number;
   isHeld: boolean;
   heldByPlayerId: string | null;
+  lastHeldByPlayerId?: string | null;
   value: number;
   basePrice?: number;
   baseSpeciesId?: FishSpeciesId;
@@ -243,6 +245,8 @@ export interface EndgameAuditRecord {
   colorHex: string;
   totalQuotaContributed: number;
   totalMeritPoints: number;
+  totalFishBanked?: number;
+  totalDishesCooked?: number;
   completedBounties: { title: string; levelTier: number; points: number }[];
   isEmployeeOfTheRun: boolean;
   isUncleGaryGoldenRat: boolean;

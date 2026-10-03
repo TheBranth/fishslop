@@ -365,36 +365,47 @@ export class GameApp {
     if (bannerTitle) bannerTitle.textContent = title;
     if (bannerSubtitle) bannerSubtitle.textContent = subtitle;
 
-    const mvp = audit.find(a => a.isEmployeeOfTheRun) || audit[0];
-    const rat = audit.find(a => a.isUncleGaryGoldenRat) || audit[1] || audit[0];
+    const mvp = audit.find(a => a.isEmployeeOfTheRun);
+    const rat = audit.find(a => a.isUncleGaryGoldenRat);
 
     const mvpName = document.getElementById('audit-mvp-name');
     const mvpStat = document.getElementById('audit-mvp-stat');
     const ratName = document.getElementById('audit-rat-name');
     const ratStat = document.getElementById('audit-rat-stat');
 
-    if (mvpName) mvpName.textContent = mvp?.name || 'Player 1';
-    if (mvpStat) mvpStat.textContent = `$${mvp?.totalQuotaContributed || 0} Legal Quota Banked`;
-    if (ratName) ratName.textContent = rat?.name || 'Player 2';
-    if (ratStat) ratStat.textContent = `${rat?.totalMeritPoints || 0} Gary-OS Merit PTS`;
+    if (mvpName) mvpName.textContent = mvp ? mvp.name : (audit[0]?.name || 'Nobody');
+    if (mvpStat) mvpStat.textContent = mvp && mvp.totalQuotaContributed > 0 ? `$${mvp.totalQuotaContributed} Legal Quota Banked` : '$0 Banked';
+    if (ratName) ratName.textContent = rat ? rat.name : 'Honest Crew';
+    if (ratStat) ratStat.textContent = rat && rat.totalMeritPoints > 0 ? `${rat.totalMeritPoints} Gary-OS Merit PTS` : 'Zero Sabotage (0 PTS)';
 
     const roster = document.getElementById('audit-crew-roster');
     if (roster) {
-      roster.innerHTML = audit.map(rec => `
-        <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 flex items-center justify-between">
-          <div class="flex items-center space-x-3">
-            <span class="w-4 h-4 rounded-full" style="background-color: ${rec.colorHex}"></span>
-            <div>
-              <div class="font-bold text-white text-xs">${rec.name}</div>
-              <div class="text-[10px] text-slate-400">Quota: $${rec.totalQuotaContributed} | Merit PTS: ${rec.totalMeritPoints}</div>
+      roster.innerHTML = audit.map(rec => {
+        const bountyBadges = rec.completedBounties && rec.completedBounties.length > 0
+          ? `<div class="mt-1 flex flex-wrap gap-1">
+              ${rec.completedBounties.map(b => `<span class="px-1.5 py-0.5 rounded bg-slate-900 border border-amber-500/30 text-[9px] text-amber-300">🕵️ ${b.title} (+${b.points}p)</span>`).join('')}
+             </div>`
+          : '';
+
+        return `
+        <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 flex flex-col space-y-1">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <span class="w-4 h-4 rounded-full" style="background-color: ${rec.colorHex}"></span>
+              <div>
+                <div class="font-bold text-white text-xs">${rec.name}</div>
+                <div class="text-[10px] text-slate-400">Quota: $${rec.totalQuotaContributed} | Fish: ${rec.totalFishBanked || 0} | Cooked: ${rec.totalDishesCooked || 0} | Sabotage: ${rec.totalMeritPoints} PTS</div>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2">
+              ${rec.isEmployeeOfTheRun ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-bold text-[10px] border border-emerald-500/40">🏆 MVP</span>' : ''}
+              ${rec.isUncleGaryGoldenRat ? '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-mono font-bold text-[10px] border border-amber-500/40">🐀 GOLDEN RAT</span>' : ''}
             </div>
           </div>
-          <div class="flex items-center space-x-2">
-            ${rec.isEmployeeOfTheRun ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-bold text-[10px] border border-emerald-500/40">🏆 MVP</span>' : ''}
-            ${rec.isUncleGaryGoldenRat ? '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-mono font-bold text-[10px] border border-amber-500/40">🐀 GOLDEN RAT</span>' : ''}
-          </div>
+          ${bountyBadges}
         </div>
-      `).join('');
+      `;
+      }).join('');
     }
 
     modal?.classList.remove('hidden');

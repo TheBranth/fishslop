@@ -4,6 +4,7 @@ package-lock.json
 
 # Build outputs
 dist/
+dist-server/
 build/
 *.local
 
@@ -25,3 +26,5 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+__pycache__/
+*.pyc
