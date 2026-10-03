@@ -23,6 +23,7 @@ export class GameApp {
   private keysDown: Set<string> = new Set();
   private lastTime: number = performance.now();
   private channel: BroadcastChannel | null = null;
+  private serverLanIp: string = '';
 
   constructor() {
     this.canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
@@ -37,6 +38,7 @@ export class GameApp {
     this.setupEngineCallbacks();
     this.populateFishopedia();
     this.initTitleScreen();
+    this.fetchLanIp();
     this.checkInitialURLParams();
     this.initLoop();
   }
@@ -512,11 +514,33 @@ export class GameApp {
     modal?.classList.toggle('hidden');
   }
 
+  private async fetchLanIp(): Promise<void> {
+    try {
+      const res = await fetch('/api/health');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.localIp && data.localIp !== 'localhost') {
+          this.serverLanIp = data.localIp;
+          // Refresh QR codes and links with actual LAN IP
+          this.initTitleScreen();
+        }
+      }
+    } catch (_) {}
+  }
+
+  public getConnectOrigin(): string {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocal && this.serverLanIp) {
+      return `http://${this.serverLanIp}:${window.location.port || '5180'}`;
+    }
+    return window.location.origin;
+  }
+
   public togglePhoneModal(): void {
     const modal = document.getElementById('modal-phone-connect');
     const qrImg = document.getElementById('qr-code-img') as HTMLImageElement;
     if (qrImg) {
-      const url = `${window.location.origin}/controller.html`;
+      const url = `${this.getConnectOrigin()}/controller.html`;
       qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}`;
     }
     modal?.classList.toggle('hidden');
@@ -600,7 +624,7 @@ export class GameApp {
   private debounceTimer: any = null;
 
   public initTitleScreen(): void {
-    const origin = window.location.origin;
+    const origin = this.getConnectOrigin();
 
     // 1. Smart TV Zero-Remote Quickstart QR Badge
     const quickstartQr = document.getElementById('quickstart-qr-img') as HTMLImageElement;
