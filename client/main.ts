@@ -31,6 +31,8 @@ export class GameApp {
     this.renderer = new GameRenderer(this.canvas);
     this.soundSystem = new SoundSystem();
     this.engine = new LocalGameEngine();
+    this.engine.state.gameState = 'lobby';
+    (this.engine.state as any).inTitleLobby = true;
     this.minigameController = new MinigameController(this.canvas, this.soundSystem);
 
     this.setupEventListeners();
@@ -75,7 +77,19 @@ export class GameApp {
     this.networkManager.onRemotePlayerJoined = (data) => {
       this.soundSystem.play('bell');
       this.engine.addFeedMessage(`👋 Sailor joined virtual room (${data.name || 'P' + ((data.playerIndex || 0) + 1)})!`, 'info');
-      this.updateTitleLobbyCrew();
+      this.updateTitleLobbyCrew(data);
+    };
+
+    this.networkManager.onCrewReadyUpdated = (data) => {
+      this.updateTitleLobbyCrew(data);
+      if (data.allReady) {
+        this.soundSystem.play('victory');
+        this.engine.addFeedMessage('🎉 All crew members agreed! Ready to Cast Off!', 'score');
+      }
+    };
+
+    this.networkManager.onRemotePlayerLeft = (data) => {
+      this.updateTitleLobbyCrew(data);
     };
 
     // VIP Player 1 casts off from phone controller!
@@ -783,6 +797,7 @@ export class GameApp {
 
   public startLocalGameFromTitle(): void {
     this.playMode = 'local';
+    this.engine.startExpedition();
     this.hideTitleScreen();
     const modeText = document.getElementById('hud-mode-text');
     if (modeText) modeText.textContent = 'Local TV';
@@ -890,6 +905,10 @@ export class GameApp {
   }
 
   public launchOnlineGameFromTitle(): void {
+    this.engine.startExpedition();
+    if (this.roomCode) {
+      this.networkManager.notifyHostGameStarted(this.roomCode);
+    }
     this.hideTitleScreen();
     this.soundSystem.play('bell');
     if (this.isAudioEnabled) {
@@ -963,28 +982,74 @@ export class GameApp {
 
   public startRoundFromPhoneVIP(): void {
     if (!document.getElementById('title-screen-container')?.classList.contains('hidden')) {
+      this.engine.startExpedition();
       this.soundSystem.play('bell');
       this.hideTitleScreen();
       if (this.isAudioEnabled) {
         this.soundSystem.startSeaShantyMusic();
       }
-      this.engine.addFeedMessage('⚓ Player 1 (Lobby Leader) cast off the ship from phone!', 'info');
+      this.engine.addFeedMessage('⚓ Cast off triggered from phone controller!', 'info');
     }
   }
 
-  private updateTitleLobbyCrew(): void {
+  private updateTitleLobbyCrew(data?: any): void {
     const onlineList = document.getElementById('title-lobby-crew-list');
     const localList = document.getElementById('local-crew-roster');
-    const html = `
-      <div class="p-2 rounded-xl bg-slate-950 border border-teal-500/40 flex items-center justify-between">
+    const castOffBtn = document.getElementById('btn-title-cast-off');
+    const castOffLbl = document.getElementById('lbl-title-cast-off');
+
+    const crewList: any[] = data?.crewList || [];
+    let html = `
+      <div class="p-2.5 rounded-xl bg-slate-950 border border-teal-500/40 flex items-center justify-between">
         <span class="font-bold text-teal-300">👑 Host TV Display</span>
-        <span class="text-[10px] text-emerald-400 font-mono">HOST</span>
-      </div>
-      <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
-        <span class="font-bold text-slate-300">🔵 Sailor Joined</span>
-        <span class="text-[10px] text-teal-400 font-mono">CREW</span>
+        <span class="text-[10px] text-emerald-400 font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30">HOST</span>
       </div>
     `;
+
+    if (crewList.length > 0) {
+      const controllers = crewList.filter((c: any) => c.role === 'controller');
+      const readyCount = controllers.filter((c: any) => c.isReady).length;
+      const totalCount = controllers.length;
+      const allReady = totalCount > 0 && readyCount === totalCount;
+
+      controllers.forEach((client: any) => {
+        const isLeader = client.playerIndex === 0;
+        const ready = Boolean(client.isReady);
+        html += `
+          <div class="p-2.5 rounded-xl bg-slate-950 border ${ready ? 'border-emerald-500/50 shadow-sm shadow-emerald-500/10' : 'border-slate-800'} flex items-center justify-between">
+            <span class="font-bold ${isLeader ? 'text-amber-300' : 'text-slate-200'}">
+              ${isLeader ? '👑' : '⚓'} ${client.name || `Sailor (P${(client.playerIndex ?? 0) + 1})`}
+            </span>
+            <span class="text-[10px] ${ready ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-amber-400 bg-amber-500/10 border-amber-500/30'} px-2 py-0.5 rounded-full border font-mono font-bold">
+              ${ready ? '✓ AGREED' : '⏳ WAITING'}
+            </span>
+          </div>
+        `;
+      });
+
+      if (castOffLbl) {
+        if (allReady) {
+          castOffLbl.textContent = 'CAST OFF / ALL CREW AGREED! ⚓';
+          if (castOffBtn) {
+            castOffBtn.className = 'w-full bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 text-slate-950 font-black py-3 rounded-2xl transition shadow-lg shadow-emerald-500/30 flex items-center justify-center space-x-2 text-sm active:scale-95 animate-pulse';
+          }
+        } else {
+          castOffLbl.textContent = `CAST OFF (${readyCount}/${totalCount} Agreed)`;
+          if (castOffBtn) {
+            castOffBtn.className = 'w-full bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-500 text-white font-black py-3 rounded-2xl transition shadow-lg shadow-teal-500/20 flex items-center justify-center space-x-2 text-sm active:scale-95';
+          }
+        }
+      }
+    } else {
+      html += `
+        <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+          <span class="font-bold text-slate-400">📱 Waiting for Phone Controllers to scan QR...</span>
+          <span class="text-[10px] text-slate-500 font-mono">0 JOINED</span>
+        </div>
+      `;
+      if (castOffLbl) castOffLbl.textContent = 'CAST OFF / START EXPEDITION';
+    }
+
     if (onlineList) onlineList.innerHTML = html;
     if (localList) localList.innerHTML = html;
   }

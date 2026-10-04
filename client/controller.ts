@@ -29,6 +29,9 @@ export class PhoneControllerApp {
     isActionPrimaryHeld: false
   };
 
+  public isReady: boolean = false;
+  public crewList: any[] = [];
+  public isLobbyPhase: boolean = true;
   private activeBounty: SecretBounty | null = null;
   private sendInterval: any = null;
 
@@ -85,7 +88,11 @@ export class PhoneControllerApp {
     };
 
     this.networkManager.onLobbyGameStarted = () => {
-      document.getElementById('ctrl-lobby-overlay')?.classList.add('hidden');
+      this.handleGameStarted();
+    };
+
+    this.networkManager.onCrewReadyUpdated = (data: any) => {
+      this.handleCrewReadyUpdated(data);
     };
   }
 
@@ -124,6 +131,9 @@ export class PhoneControllerApp {
         }
         document.getElementById('modal-ctrl-join-room')?.classList.add('hidden');
         this.updatePlayerBadge();
+        if ((res as any).crewList) {
+          this.handleCrewReadyUpdated(res);
+        }
         this.soundSystem.play('bell');
       } else {
         if (errElem) {
@@ -388,55 +398,10 @@ export class PhoneControllerApp {
     // Lobby Phase Overlay Check
     const lobbyOverlay = document.getElementById('ctrl-lobby-overlay');
     if (state.gameState === 'lobby' || state.inTitleLobby) {
-      if (lobbyOverlay) {
-        lobbyOverlay.classList.remove('hidden');
-        const roleBadge = document.getElementById('ctrl-lobby-role-badge');
-        const btnCastOff = document.getElementById('btn-ctrl-cast-off');
-        const waitingText = document.getElementById('ctrl-lobby-waiting-text');
-        const roomNameElem = document.getElementById('ctrl-lobby-room-name');
-        const subtitleElem = document.getElementById('ctrl-lobby-subtitle');
-
-        if (roomNameElem) roomNameElem.textContent = this.roomCode || 'LOCAL';
-
-        if (this.playerIndex === 0) {
-          if (roleBadge) {
-            roleBadge.textContent = '👑 LOBBY LEADER (PLAYER 1)';
-            roleBadge.className = 'inline-block px-3.5 py-1 rounded-full text-xs font-black font-mono uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40';
-          }
-          if (btnCastOff) btnCastOff.classList.remove('hidden');
-          if (waitingText) waitingText.classList.add('hidden');
-          if (subtitleElem) subtitleElem.textContent = 'You are the leader! Tap Cast Off below when everyone is ready to start the game on the TV.';
-        } else {
-          if (roleBadge) {
-            roleBadge.textContent = `⚓ CREWMATE (PLAYER ${this.playerIndex + 1})`;
-            roleBadge.className = 'inline-block px-3.5 py-1 rounded-full text-xs font-black font-mono uppercase bg-teal-500/20 text-teal-300 border border-teal-500/40';
-          }
-          if (btnCastOff) btnCastOff.classList.add('hidden');
-          if (waitingText) waitingText.classList.remove('hidden');
-          if (subtitleElem) subtitleElem.textContent = 'Waiting for the lobby leader (Player 1) to tap Cast Off and start the run...';
-        }
-
-        // Render roster if state has players
-        const rosterElem = document.getElementById('ctrl-lobby-crew-list');
-        if (rosterElem && state.players) {
-          rosterElem.innerHTML = state.players.map((p: any, idx: number) => {
-            const isMe = idx === this.playerIndex;
-            const isLeader = idx === 0;
-            return `
-              <div class="p-2 rounded-xl bg-slate-950 border ${isMe ? 'border-teal-500/50' : 'border-slate-800'} flex items-center justify-between">
-                <span class="font-bold ${isMe ? 'text-teal-300' : 'text-slate-300'}">
-                  ${isLeader ? '👑' : '⚓'} ${p.name || `Player ${idx + 1}`} ${isMe ? '(You)' : ''}
-                </span>
-                <span class="text-[10px] ${isLeader ? 'text-amber-400' : 'text-emerald-400'} font-mono font-bold">
-                  ${isLeader ? 'LEADER' : 'READY'}
-                </span>
-              </div>
-            `;
-          }).join('');
-        }
-      }
-    } else {
-      if (lobbyOverlay) lobbyOverlay.classList.add('hidden');
+      this.isLobbyPhase = true;
+      if (lobbyOverlay) lobbyOverlay.classList.remove('hidden');
+    } else if (state.gameState === 'playing' && this.isLobbyPhase) {
+      this.handleGameStarted();
     }
 
     // Update boat balance tilt gauge
@@ -683,7 +648,111 @@ export class PhoneControllerApp {
     if (this.channel) {
       this.channel.postMessage({ type: 'START_ROUND_FROM_PHONE' });
     }
+    this.handleGameStarted();
+  }
+
+  public handleCrewReadyUpdated(data: any): void {
+    if (data.crewList) {
+      this.crewList = data.crewList;
+    }
+
+    const summaryElem = document.getElementById('ctrl-lobby-ready-summary');
+    const rosterElem = document.getElementById('ctrl-lobby-crew-list');
+    const btnCastOff = document.getElementById('btn-ctrl-cast-off');
+    const waitingText = document.getElementById('ctrl-lobby-waiting-text');
+    const roomNameElem = document.getElementById('ctrl-lobby-room-name');
+    if (roomNameElem) roomNameElem.textContent = this.roomCode || 'LOCAL';
+
+    const totalControllers = data.controllerCount ?? Math.max(1, this.crewList.filter((c: any) => c.role === 'controller').length);
+    const readyControllers = data.readyCount ?? this.crewList.filter((c: any) => c.role === 'controller' && c.isReady).length;
+    const allReady = Boolean(data.allReady ?? (totalControllers > 0 && readyControllers === totalControllers));
+
+    if (summaryElem) {
+      summaryElem.textContent = `${readyControllers} / ${totalControllers} Agreed`;
+      summaryElem.className = allReady 
+        ? 'text-[10px] font-mono font-bold text-emerald-400' 
+        : 'text-[10px] font-mono font-bold text-amber-400';
+    }
+
+    if (rosterElem && this.crewList.length > 0) {
+      rosterElem.innerHTML = this.crewList.map((client: any) => {
+        const isMe = client.playerIndex === this.playerIndex;
+        const isLeader = client.playerIndex === 0;
+        const ready = Boolean(client.isReady || (client.role === 'host' && isLeader));
+        return `
+          <div class="p-2.5 rounded-xl bg-slate-950 border ${isMe ? 'border-teal-500/60 shadow' : 'border-slate-800'} flex items-center justify-between">
+            <span class="font-bold ${isMe ? 'text-teal-300' : 'text-slate-300'}">
+              ${isLeader ? '👑' : '⚓'} ${client.name || (client.playerIndex !== undefined ? `Player ${client.playerIndex + 1}` : 'Crewmate')} ${isMe ? '(You)' : ''}
+            </span>
+            <span class="text-[10px] ${ready ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-amber-400 bg-amber-500/10 border-amber-500/30'} px-2 py-0.5 rounded-full border font-mono font-bold">
+              ${ready ? '✓ READY' : '⏳ WAITING'}
+            </span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Leader Cast Off Button Visibility & Readiness
+    if (this.playerIndex === 0 && btnCastOff) {
+      btnCastOff.classList.remove('hidden');
+      if (allReady) {
+        btnCastOff.className = 'w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-black py-3.5 rounded-2xl transition shadow-xl shadow-emerald-500/30 flex items-center justify-center space-x-2 text-sm active:scale-95 animate-pulse';
+        btnCastOff.innerHTML = '<i class="fa-solid fa-anchor"></i><span>⚡ CAST OFF / ALL CREW AGREED!</span>';
+      } else {
+        btnCastOff.className = 'w-full bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 text-slate-950 font-black py-3 rounded-2xl transition shadow-xl shadow-amber-600/20 flex items-center justify-center space-x-2 text-sm active:scale-95';
+        btnCastOff.innerHTML = `<i class="fa-solid fa-anchor"></i><span>CAST OFF (${readyControllers}/${totalControllers} Agreed)</span>`;
+      }
+    }
+
+    if (waitingText) {
+      if (allReady) {
+        waitingText.textContent = '🎉 All crew members agreed! Captain can cast off!';
+        waitingText.className = 'text-[11px] text-emerald-400 font-bold animate-pulse';
+      } else {
+        waitingText.textContent = `Waiting for all crew to agree (${readyControllers}/${totalControllers} ready)...`;
+        waitingText.className = 'text-[11px] text-slate-400 font-medium';
+      }
+    }
+  }
+
+  public toggleReadyState(): void {
+    this.isReady = !this.isReady;
+    this.triggerHaptic(this.isReady ? [40, 60] : 30);
+    this.soundSystem.play(this.isReady ? 'ding' : 'pickup');
+    this.networkManager.setPlayerReady(this.isReady);
+    this.updateReadyButtonUI();
+
+    // Update local client entry in crewList
+    const myClient = this.crewList.find((c: any) => c.playerIndex === this.playerIndex);
+    if (myClient) {
+      myClient.isReady = this.isReady;
+      this.handleCrewReadyUpdated({ crewList: this.crewList });
+    }
+  }
+
+  private updateReadyButtonUI(): void {
+    const btn = document.getElementById('btn-ctrl-toggle-ready');
+    const icon = document.getElementById('icon-ctrl-ready');
+    const lbl = document.getElementById('lbl-ctrl-ready');
+
+    if (!btn || !lbl || !icon) return;
+
+    if (this.isReady) {
+      btn.className = 'w-full bg-gradient-to-r from-emerald-600 to-teal-600 border-2 border-emerald-400 text-white font-black py-4 rounded-2xl transition shadow-xl shadow-emerald-500/30 flex items-center justify-center space-x-2 text-base active:scale-95';
+      icon.className = 'fa-solid fa-check text-xl text-emerald-200';
+      lbl.textContent = 'AGREED! (TAP TO UNREADY)';
+    } else {
+      btn.className = 'w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 text-slate-950 font-black py-4 rounded-2xl transition shadow-xl shadow-teal-500/20 flex items-center justify-center space-x-2 text-base active:scale-95 animate-pulse';
+      icon.className = 'fa-solid fa-thumbs-up text-lg';
+      lbl.textContent = "AGREE TO START / I'M READY!";
+    }
+  }
+
+  public handleGameStarted(): void {
+    this.isLobbyPhase = false;
     document.getElementById('ctrl-lobby-overlay')?.classList.add('hidden');
+    this.soundSystem.play('bell');
+    this.triggerHaptic([50, 50, 50]);
   }
 
   private triggerHaptic(pattern: number | number[]): void {

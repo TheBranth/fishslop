@@ -9,7 +9,7 @@
     "start": "tsx server/server.ts",
     "tunnel": "ngrok http 3050",
     "prod": "npm run build && tsx server/server.ts",
-    "build": "vite build && tsc -p tsconfig.server.json",
+    "build": "vite build && tsc -p tsconfig.server.json && node -e \"const fs = require('fs'); fs.cpSync('client/assets', 'dist/assets', {recursive: true, force: true});\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

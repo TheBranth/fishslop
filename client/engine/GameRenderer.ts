@@ -245,7 +245,11 @@ export class GameRenderer {
 
     // 12. Draw Players (with Fishing Rods & Reel Minigames)
     state.players.forEach(player => {
-      this.drawPlayer(player, state);
+      try {
+        this.drawPlayer(player, state);
+      } catch (err) {
+        console.warn('[GameRenderer] Error rendering player:', err);
+      }
     });
 
     // 13. Level 5 Kraken Grappling Tentacles (on top of gunwales)
@@ -1239,7 +1243,7 @@ export class GameRenderer {
 
     // 3. Render Pixel-Art Sailor Sprite
     const sprites = this.fishermanSprites[player.color] || this.fishermanSprites['yellow'];
-    if (sprites && sprites.idle.complete) {
+    if (sprites && sprites.idle && sprites.idle.complete && sprites.idle.naturalWidth > 0) {
       ctx.save();
       const frameIdx = Math.floor((Date.now() / 125 + player.playerIndex) % 4);
       let spriteImg: HTMLImageElement = sprites.idle;

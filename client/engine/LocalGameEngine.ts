@@ -2187,6 +2187,13 @@ export class LocalGameEngine {
     }
   }
 
+  public startExpedition(): void {
+    this.state.gameState = 'playing';
+    this.state.inTitleLobby = false;
+    this.levelTimeLeft = this.state.level.timeLimitSeconds;
+    this.state.timeLeft = this.state.level.timeLimitSeconds;
+  }
+
   public reset(): void {
     this.currentLevelIndex = 0;
     const firstLvl = ROGUELITE_LEVELS[0];

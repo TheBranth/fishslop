@@ -7,6 +7,7 @@ export interface VirtualRoomClient {
   role: 'host' | 'controller' | 'viewer';
   name?: string;
   playerIndex?: number;
+  isReady?: boolean;
 }
 
 export interface VirtualRoom {
@@ -88,7 +89,8 @@ export class RoomManager {
       socketId: hostSocketId,
       role: 'host',
       name: 'Host Display',
-      playerIndex: 0
+      playerIndex: 0,
+      isReady: true
     });
 
     this.rooms.set(roomCode, room);
@@ -173,7 +175,8 @@ export class RoomManager {
       socketId,
       role,
       name: name || (role === 'controller' ? `Sailor P${(playerIndex || 0) + 1}` : 'Spectator'),
-      playerIndex
+      playerIndex,
+      isReady: false
     });
 
     room.lastActivity = Date.now();
@@ -184,6 +187,60 @@ export class RoomManager {
       roomCode: room.roomCode,
       playerIndex,
       hasPassword: room.hasPassword
+    };
+  }
+
+  /**
+   * Sets client readiness state (agree to start)
+   */
+  public setClientReady(socketId: string, isReady: boolean): { success: boolean; room?: VirtualRoom; client?: VirtualRoomClient } {
+    const room = this.getRoomForSocket(socketId);
+    if (!room) return { success: false };
+    const client = room.clients.get(socketId);
+    if (!client) return { success: false };
+
+    client.isReady = Boolean(isReady);
+    room.lastActivity = Date.now();
+    return { success: true, room, client };
+  }
+
+  /**
+   * Checks whether all connected mobile controllers are ready
+   */
+  public areAllControllersReady(roomCode: string): boolean {
+    const room = this.getRoom(roomCode);
+    if (!room) return false;
+    let controllerCount = 0;
+    let readyCount = 0;
+    room.clients.forEach(c => {
+      if (c.role === 'controller') {
+        controllerCount++;
+        if (c.isReady) readyCount++;
+      }
+    });
+    return controllerCount > 0 && readyCount === controllerCount;
+  }
+
+  /**
+   * Gets crew summary (roster, readiness counts)
+   */
+  public getCrewSummary(roomCode: string): { crewList: VirtualRoomClient[]; readyCount: number; controllerCount: number; allReady: boolean } {
+    const room = this.getRoom(roomCode);
+    if (!room) return { crewList: [], readyCount: 0, controllerCount: 0, allReady: false };
+    const crewList = Array.from(room.clients.values());
+    let controllerCount = 0;
+    let readyCount = 0;
+    crewList.forEach(c => {
+      if (c.role === 'controller') {
+        controllerCount++;
+        if (c.isReady) readyCount++;
+      }
+    });
+    return {
+      crewList,
+      readyCount,
+      controllerCount,
+      allReady: controllerCount > 0 && readyCount === controllerCount
     };
   }
 

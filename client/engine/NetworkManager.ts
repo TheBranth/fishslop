@@ -117,11 +117,16 @@ export class NetworkManager {
       this.socket.on('lobbyGameStarted', () => {
         this.onLobbyGameStarted?.();
       });
+
+      this.socket.on('crewReadyUpdated', (data) => {
+        this.onCrewReadyUpdated?.(data);
+      });
     });
   }
 
   public onStartRoundFromPhone?: () => void;
   public onLobbyGameStarted?: () => void;
+  public onCrewReadyUpdated?: (data: any) => void;
 
   /**
    * Checks whether a room name is available
@@ -290,6 +295,34 @@ export class NetworkManager {
         data: { stationType },
         playerId: 'p1'
       });
+    }
+  }
+
+  /**
+   * Mobile Controller toggles readiness / agree to start
+   */
+  public setPlayerReady(isReady: boolean): void {
+    if (this.socket && this.isConnected && this.roomCode) {
+      this.socket.emit('setPlayerReady', {
+        roomCode: this.roomCode,
+        isReady
+      });
+    }
+
+    if (this.localBus) {
+      this.localBus.postMessage({
+        type: 'SET_PLAYER_READY',
+        isReady
+      });
+    }
+  }
+
+  /**
+   * Host starts game and broadcasts to all room clients
+   */
+  public notifyHostGameStarted(roomCode: string): void {
+    if (this.socket && this.isConnected) {
+      this.socket.emit('hostGameStarted', { roomCode });
     }
   }
 }

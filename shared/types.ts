@@ -284,4 +284,8 @@ export interface GameRoomState {
   screenShaders: DeckScreenShaderState;
   endgameAudit: EndgameAuditRecord[] | null;
   activeContract?: any; // ActiveContractState
+  inTitleLobby?: boolean;
+  isLobbyReady?: boolean;
+  crewReadyCount?: number;
+  crewTotalCount?: number;
 }

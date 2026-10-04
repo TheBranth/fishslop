@@ -111,6 +111,10 @@ app.get('/api/health', async (_req, res) => {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distPath = path.join(__dirname, '../dist');
+const clientAssetsPath = path.join(__dirname, '../client/assets');
+
+// Directly serve assets (sprites, icons, sound) before SPA fallback
+app.use('/assets', express.static(clientAssetsPath));
 app.use(express.static(distPath));
 
 // Fallback for SPA routing
@@ -188,16 +192,21 @@ io.on('connection', (socket: Socket) => {
     }
 
     socket.join(result.roomCode!);
-    socket.emit('roomJoined', result);
+    const summary = roomManager.getCrewSummary(result.roomCode!);
+    socket.emit('roomJoined', {
+      ...result,
+      ...summary
+    });
 
-    // Notify the host about the new connected player/controller
+    // Notify the room and host about the new connected player/controller
     const room = roomManager.getRoom(roomCode);
-    if (room && room.hostSocketId !== socket.id) {
-      io.to(room.hostSocketId).emit('remotePlayerJoined', {
+    if (room) {
+      io.to(room.roomCode).emit('remotePlayerJoined', {
         socketId: socket.id,
         role,
         name,
-        playerIndex: result.playerIndex
+        playerIndex: result.playerIndex,
+        ...summary
       });
     }
 
@@ -247,17 +256,37 @@ io.on('connection', (socket: Socket) => {
     io.to(data.targetSocketId).emit('triggerMinigame', { stationType: data.stationType });
   });
 
+  // 6.2 Player Ready State Toggle (Agree to Start from Mobile Controller)
+  socket.on('setPlayerReady', (data: { roomCode: string; isReady: boolean }) => {
+    const result = roomManager.setClientReady(socket.id, data.isReady);
+    if (result.success && result.room) {
+      const summary = roomManager.getCrewSummary(result.room.roomCode);
+      io.to(result.room.roomCode).emit('crewReadyUpdated', {
+        socketId: socket.id,
+        playerIndex: result.client?.playerIndex,
+        isReady: data.isReady,
+        ...summary
+      });
+      console.log(`[Player Ready] ${result.client?.name} (P${(result.client?.playerIndex ?? 0) + 1}) in ${result.room.roomCode}: ${data.isReady ? 'READY' : 'WAITING'}`);
+    }
+  });
+
+  // 6.3 Host Started Game Notification to all controllers
+  socket.on('hostGameStarted', (data: { roomCode: string }) => {
+    const room = roomManager.getRoom(data.roomCode);
+    if (room && room.hostSocketId === socket.id) {
+      io.to(room.roomCode).emit('lobbyGameStarted');
+      console.log(`[Lobby Cast Off] Host started game in room ${room.roomCode}!`);
+    }
+  });
+
   // 6.5 VIP Player 1 Cast Off from Phone Controller!
   socket.on('startRoundFromController', () => {
     const room = roomManager.getRoomForSocket(socket.id);
     if (room) {
-      const client = room.clients.get(socket.id);
-      if (client && client.playerIndex === 0) {
-        // Player 1 verified! Notify host to start game and notify room
-        io.to(room.hostSocketId).emit('startRoundFromPhone');
-        io.to(room.roomCode).emit('lobbyGameStarted');
-        console.log(`[Lobby Cast Off] Player 1 started game in room ${room.roomCode}!`);
-      }
+      io.to(room.hostSocketId).emit('startRoundFromPhone');
+      io.to(room.roomCode).emit('lobbyGameStarted');
+      console.log(`[Lobby Cast Off] Round started from phone controller in room ${room.roomCode}!`);
     }
   });
 
@@ -271,7 +300,11 @@ io.on('connection', (socket: Socket) => {
       } else {
         const room = roomManager.getRoom(roomCode);
         if (room) {
-          io.to(room.hostSocketId).emit('remotePlayerLeft', { socketId: socket.id });
+          const summary = roomManager.getCrewSummary(roomCode);
+          io.to(room.roomCode).emit('remotePlayerLeft', { 
+            socketId: socket.id,
+            ...summary 
+          });
         }
         console.log(`[Client Disconnected] ${socket.id} left ${roomCode}`);
       }
