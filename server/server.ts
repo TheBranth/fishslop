@@ -36,15 +36,34 @@ function getLocalNetworkIp(): string {
 
 const localIp = getLocalNetworkIp();
 
-app.use(express.json());
+// Helper: Auto-detect active public tunnel (ngrok or cloudflared)
+async function getPublicTunnelUrl(): Promise<string | null> {
+  if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL;
+  if (process.env.TUNNEL_URL) return process.env.TUNNEL_URL;
+  try {
+    const res = await fetch('http://127.0.0.1:4040/api/tunnels', { signal: AbortSignal.timeout(1000) });
+    if (res.ok) {
+      const data = await res.json() as any;
+      const tunnels = data.tunnels;
+      if (Array.isArray(tunnels) && tunnels.length > 0) {
+        const httpsTunnel = tunnels.find((t: any) => t.proto === 'https') || tunnels[0];
+        if (httpsTunnel?.public_url) {
+          return httpsTunnel.public_url;
+        }
+      }
+    }
+  } catch (_) {}
+  return null;
+}
 
 // API: Generate QR Code data URL for a room
 app.get('/api/qr', async (req, res) => {
   const { room, pwd, host: customHost } = req.query;
   if (!room) return res.status(400).json({ error: 'Room code required' });
 
-  const hostHeader = customHost || req.headers.host || `${localIp}:${PORT}`;
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+  const tunnelUrl = await getPublicTunnelUrl();
+  const hostHeader = customHost || (tunnelUrl ? tunnelUrl.replace(/^https?:\/\//, '') : req.headers.host) || `${localIp}:${PORT}`;
+  const protocol = tunnelUrl ? tunnelUrl.split('://')[0] : (req.headers['x-forwarded-proto'] || req.protocol || 'http');
   let joinUrl = `${protocol}://${hostHeader}/controller.html?room=${room}`;
   if (pwd) {
     joinUrl += `&pwd=${encodeURIComponent(String(pwd))}`;
@@ -73,12 +92,14 @@ app.get('/api/check-room', (req, res) => {
 });
 
 // API: Health check & active rooms
-app.get('/api/health', (_req, res) => {
+app.get('/api/health', async (_req, res) => {
+  const publicTunnel = await getPublicTunnelUrl();
   res.json({ 
     status: 'ok', 
     serverTime: Date.now(), 
     localIp, 
     port: PORT,
+    publicUrl: publicTunnel,
     activeRooms: roomManager.getAllRooms().map(r => ({
       roomCode: r.roomCode,
       hasPassword: r.hasPassword,
@@ -122,7 +143,9 @@ io.on('connection', (socket: Socket) => {
     const room = creation.room;
     socket.join(room.roomCode);
 
-    const baseUrl = data?.hostOrigin || `http://${localIp}:${PORT}`;
+    const publicTunnel = await getPublicTunnelUrl();
+    const isLocalOrigin = !data?.hostOrigin || data.hostOrigin.includes('localhost') || data.hostOrigin.includes('127.0.0.1');
+    const baseUrl = (publicTunnel && isLocalOrigin) ? publicTunnel : (data?.hostOrigin || publicTunnel || `http://${localIp}:${PORT}`);
     let joinUrl = `${baseUrl}/?room=${room.roomCode}`;
     let controllerUrl = `${baseUrl}/controller.html?room=${room.roomCode}`;
 
@@ -256,10 +279,14 @@ io.on('connection', (socket: Socket) => {
   });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
+  const tunnel = await getPublicTunnelUrl();
   console.log(`=======================================================`);
   console.log(`🎣 FRIENDSLOP FISHING CO. — VIRTUAL ROOM SERVER ONLINE!`);
   console.log(`📡 Local Host:    http://localhost:${PORT}`);
   console.log(`📱 LAN Controller: http://${localIp}:${PORT}`);
+  if (tunnel) {
+    console.log(`🌐 Public Tunnel:  ${tunnel}`);
+  }
   console.log(`=======================================================`);
 });

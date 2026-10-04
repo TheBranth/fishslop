@@ -7,6 +7,8 @@
     "dev": "vite",
     "dev:server": "tsx watch server/server.ts",
     "start": "tsx server/server.ts",
+    "tunnel": "ngrok http 3050",
+    "prod": "npm run build && tsx server/server.ts",
     "build": "vite build && tsc -p tsconfig.server.json",
     "typecheck": "tsc --noEmit"
   },

@@ -139,7 +139,7 @@ export class NetworkManager {
   /**
    * Host creates a new Virtual Room with optional custom name and password
    */
-  public async createRoom(roomName?: string, password?: string): Promise<RoomCreateResult> {
+  public async createRoom(roomName?: string, password?: string, hostOrigin?: string): Promise<RoomCreateResult> {
     const socket = await this.connectSocket();
     this.role = 'host';
 
@@ -147,7 +147,7 @@ export class NetworkManager {
       socket.emit('createRoom', {
         roomName,
         password,
-        hostOrigin: window.location.origin
+        hostOrigin: hostOrigin || window.location.origin
       });
 
       socket.once('roomCreated', (res: RoomCreateResult) => {

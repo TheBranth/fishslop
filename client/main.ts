@@ -24,6 +24,7 @@ export class GameApp {
   private lastTime: number = performance.now();
   private channel: BroadcastChannel | null = null;
   private serverLanIp: string = '';
+  private publicTunnelUrl: string = '';
 
   constructor() {
     this.canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
@@ -530,9 +531,17 @@ export class GameApp {
       const res = await fetch('/api/health');
       if (res.ok) {
         const data = await res.json();
+        let changed = false;
+        if (data.publicUrl) {
+          this.publicTunnelUrl = data.publicUrl;
+          changed = true;
+        }
         if (data.localIp && data.localIp !== 'localhost') {
           this.serverLanIp = data.localIp;
-          // Refresh QR codes and links with actual LAN IP
+          changed = true;
+        }
+        if (changed) {
+          // Refresh QR codes and links with actual public tunnel / LAN IP
           this.initTitleScreen();
         }
       }
@@ -540,6 +549,9 @@ export class GameApp {
   }
 
   public getConnectOrigin(): string {
+    if (this.publicTunnelUrl) {
+      return this.publicTunnelUrl;
+    }
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     if (isLocal && this.serverLanIp) {
       return `http://${this.serverLanIp}:${window.location.port || '5180'}`;
@@ -636,6 +648,17 @@ export class GameApp {
 
   public initTitleScreen(): void {
     const origin = this.getConnectOrigin();
+
+    // 0. Update Online Tunnel Badge
+    const tunnelBadge = document.getElementById('title-tunnel-badge');
+    const tunnelText = document.getElementById('title-tunnel-text');
+    if (this.publicTunnelUrl && tunnelBadge) {
+      tunnelBadge.classList.remove('hidden');
+      if (tunnelText) {
+        const domain = this.publicTunnelUrl.replace(/^https?:\/\//, '');
+        tunnelText.textContent = `Online: ${domain}`;
+      }
+    }
 
     // 1. Smart TV Zero-Remote Quickstart QR Badge
     const quickstartQr = document.getElementById('quickstart-qr-img') as HTMLImageElement;
@@ -765,7 +788,7 @@ export class GameApp {
     if (modeText) modeText.textContent = 'Local TV';
     document.getElementById('hud-room-badge')?.classList.add('hidden');
 
-    const origin = window.location.origin;
+    const origin = this.getConnectOrigin();
     this.updatePhoneModalLinks('LOCAL', `${origin}/controller.html`);
     this.soundSystem.play('bell');
 
@@ -775,10 +798,10 @@ export class GameApp {
   }
 
   public copyLocalControllerUrl(): void {
-    const url = `${window.location.origin}/controller.html`;
+    const url = `${this.getConnectOrigin()}/controller.html`;
     navigator.clipboard?.writeText(url).then(() => {
       this.soundSystem.play('pickup');
-      this.engine.addFeedMessage('📋 Copied local controller link to clipboard!', 'info');
+      this.engine.addFeedMessage('📋 Copied controller link to clipboard!', 'info');
     });
   }
 
@@ -801,7 +824,7 @@ export class GameApp {
     if (errElem) errElem.classList.add('hidden');
 
     try {
-      const res = await this.networkManager.createRoom(roomName, password);
+      const res = await this.networkManager.createRoom(roomName, password, this.getConnectOrigin());
       this.playMode = 'remote_host';
       this.roomCode = res.roomCode;
       this.roomPassword = password;
@@ -847,7 +870,7 @@ export class GameApp {
 
   public copyOnlineInviteLink(): void {
     if (!this.roomCode) return;
-    let url = `${window.location.origin}/?room=${this.roomCode}`;
+    let url = `${this.getConnectOrigin()}/?room=${this.roomCode}`;
     if (this.roomPassword) {
       url += `&pwd=${encodeURIComponent(this.roomPassword)}`;
     }
@@ -1048,10 +1071,11 @@ export class GameApp {
     const p4 = document.getElementById('link-ctrl-p4') as HTMLAnchorElement;
 
     let pwdParam = this.roomPassword ? `&pwd=${encodeURIComponent(this.roomPassword)}` : '';
-    if (p1) p1.href = `/controller.html?room=${roomCode}&player=p1${pwdParam}`;
-    if (p2) p2.href = `/controller.html?room=${roomCode}&player=p2${pwdParam}`;
-    if (p3) p3.href = `/controller.html?room=${roomCode}&player=p3${pwdParam}`;
-    if (p4) p4.href = `/controller.html?room=${roomCode}&player=p4${pwdParam}`;
+    const origin = this.getConnectOrigin();
+    if (p1) p1.href = `${origin}/controller.html?room=${roomCode}&player=p1${pwdParam}`;
+    if (p2) p2.href = `${origin}/controller.html?room=${roomCode}&player=p2${pwdParam}`;
+    if (p3) p3.href = `${origin}/controller.html?room=${roomCode}&player=p3${pwdParam}`;
+    if (p4) p4.href = `${origin}/controller.html?room=${roomCode}&player=p4${pwdParam}`;
   }
 }
 
