@@ -243,10 +243,16 @@
                 </div>
                 <div id="ctrl-join-error-text" class="text-xs text-rose-400 font-bold hidden"></div>
             </div>
-            <button onclick="window.phoneController.submitJoinRoom()" class="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 text-white font-bold py-2.5 rounded-xl transition shadow-lg flex items-center justify-center space-x-2 text-xs">
-                <i class="fa-solid fa-satellite-dish"></i>
-                <span>CONNECT CONTROLLER</span>
-            </button>
+            <div class="space-y-2 pt-1">
+                <button onclick="window.phoneController.submitJoinRoom()" class="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 text-white font-bold py-2.5 rounded-xl transition shadow-lg flex items-center justify-center space-x-2 text-xs active:scale-95">
+                    <i class="fa-solid fa-satellite-dish"></i>
+                    <span>CONNECT CONTROLLER</span>
+                </button>
+                <button onclick="window.phoneController.submitSpectateRoom()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 rounded-xl transition border border-slate-700 flex items-center justify-center space-x-2 text-xs active:scale-95">
+                    <i class="fa-solid fa-eye text-teal-400"></i>
+                    <span>SPECTATE LIVE STREAM</span>
+                </button>
+            </div>
         </div>
     <!-- VIP LOBBY CONTROL OVERLAY (Shown when in lobby before game starts) -->
     <div id="ctrl-lobby-overlay" class="fixed inset-0 bg-slate-950/95 backdrop-blur-xl z-40 flex flex-col justify-between p-4 text-center select-none overflow-y-auto">
@@ -350,7 +356,13 @@
                 <div class="text-[9px] text-slate-500 text-center">
                     Keep this secret! Your score is unmasked during Endgame Audit.
                 </div>
-            </div>
+        </div>
+
+        <div class="py-1">
+            <button onclick="window.phoneController.switchToSpectator()" class="text-[11px] text-slate-400 hover:text-teal-300 underline transition inline-flex items-center gap-1.5 mx-auto">
+                <i class="fa-solid fa-eye text-teal-400"></i>
+                <span>Prefer to watch on this device? Switch to Spectator Stream</span>
+            </button>
         </div>
     </div>
 

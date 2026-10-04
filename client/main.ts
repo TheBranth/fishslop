@@ -71,6 +71,9 @@ export class GameApp {
     this.networkManager.onStateUpdate = (state) => {
       if (this.playMode === 'remote_viewer') {
         this.remoteState = state;
+        if (state && state.gameState === 'playing') {
+          this.hideTitleScreen();
+        }
       }
     };
 
@@ -96,6 +99,11 @@ export class GameApp {
     this.networkManager.onStartRoundFromPhone = () => {
       this.startRoundFromPhoneVIP();
     };
+
+    // When game starts across all devices from room lobby
+    this.networkManager.onLobbyGameStarted = () => {
+      this.startRoundFromPhoneVIP();
+    };
   }
 
   private checkInitialURLParams(): void {
@@ -105,7 +113,6 @@ export class GameApp {
 
     if (room) {
       this.joinRemoteRoomDirect(room, pwd);
-      this.hideTitleScreen();
     } else {
       this.showTitleScreen();
     }
@@ -940,14 +947,37 @@ export class GameApp {
   public async joinRemoteRoomDirect(roomCode: string, password?: string): Promise<boolean> {
     const errElem = document.getElementById('title-join-error');
     try {
-      const res = await this.networkManager.joinRoom(roomCode, 'viewer', 'Remote Sailor', password);
+      const res = await this.networkManager.joinRoom(roomCode, 'viewer', 'Spectator TV', password);
       if (res.success) {
         this.playMode = 'remote_viewer';
         this.roomCode = res.roomCode || roomCode;
         this.roomPassword = password;
 
-        this.hideTitleScreen();
+        const origin = this.getConnectOrigin();
+        let controllerUrl = `${origin}/controller.html?room=${this.roomCode}`;
+        if (password) controllerUrl += `&pwd=${encodeURIComponent(password)}`;
+        let joinUrl = `${origin}/?room=${this.roomCode}`;
+        if (password) joinUrl += `&pwd=${encodeURIComponent(password)}`;
 
+        // Populate online lobby view on the spectator TV
+        const lobbyCode = document.getElementById('title-lobby-code');
+        const lobbyLock = document.getElementById('title-lobby-lock');
+        const lobbyQr = document.getElementById('title-lobby-qr-img') as HTMLImageElement;
+        const lobbyUrl = document.getElementById('title-lobby-join-url');
+        const castOffBtn = document.getElementById('btn-title-cast-off');
+        const castOffLbl = document.getElementById('lbl-title-cast-off');
+
+        if (lobbyCode) lobbyCode.textContent = this.roomCode;
+        if (lobbyLock) {
+          if (res.hasPassword) lobbyLock.classList.remove('hidden');
+          else lobbyLock.classList.add('hidden');
+        }
+        if (lobbyQr) {
+          lobbyQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(controllerUrl)}`;
+        }
+        if (lobbyUrl) lobbyUrl.textContent = joinUrl;
+
+        // Top HUD Room Badge
         const roomBadge = document.getElementById('hud-room-badge');
         const roomCodeElem = document.getElementById('hud-room-code');
         const roomLockElem = document.getElementById('hud-room-lock');
@@ -959,10 +989,26 @@ export class GameApp {
           if (res.hasPassword) roomLockElem.classList.remove('hidden');
           else roomLockElem.classList.add('hidden');
         }
-        if (modeText) modeText.textContent = `Viewing (${this.roomCode})`;
+        if (modeText) modeText.textContent = `Spectating (${this.roomCode})`;
+
+        this.updatePhoneModalLinks(this.roomCode, controllerUrl, res.hasPassword);
+        this.updateTitleLobbyCrew(res);
+
+        // If the game is already in progress, hide title screen immediately
+        if (this.remoteState && this.remoteState.gameState === 'playing') {
+          this.hideTitleScreen();
+        } else {
+          // Otherwise, stay in the lobby view so the viewer can scan QR with their phone!
+          if (castOffLbl) castOffLbl.textContent = '📺 SPECTATOR MONITOR — WAITING FOR CAPTAIN (P1 PHONE) TO CAST OFF ⚓';
+          if (castOffBtn) {
+            castOffBtn.className = 'w-full bg-slate-800 text-slate-400 font-bold py-3 rounded-2xl border border-slate-700 flex items-center justify-center space-x-2 text-xs cursor-default';
+          }
+          this.showTitleScreen();
+          this.showTitleView('online-lobby');
+        }
 
         this.soundSystem.play('bell');
-        this.engine.addFeedMessage(`🌐 Joined Virtual Room ${this.roomCode}! Synchronizing stream...`, 'info');
+        this.engine.addFeedMessage(`🌐 Tuned into Virtual Room ${this.roomCode}! Synchronizing stream...`, 'info');
         return true;
       } else {
         if (errElem) {

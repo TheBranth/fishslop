@@ -14,6 +14,7 @@ export class PhoneControllerApp {
 
   public playerId: string = 'p1';
   public roomCode: string = 'FISH1';
+  public roomPassword?: string;
   private playerIndex: number = 0;
 
   // Joystick & 2-Button Input State
@@ -127,6 +128,7 @@ export class PhoneControllerApp {
       const res = await this.networkManager.joinRoom(roomCode, 'controller', undefined, password);
       if (res.success) {
         this.roomCode = res.roomCode || roomCode;
+        this.roomPassword = password;
         if (res.playerIndex !== undefined) {
           this.playerIndex = res.playerIndex;
           this.playerId = `p${this.playerIndex + 1}`;
@@ -142,7 +144,18 @@ export class PhoneControllerApp {
         this.soundSystem.play('bell');
       } else {
         if (errElem) {
-          errElem.textContent = res.error || 'Failed to join room';
+          const isRoomFull = res.error && res.error.toLowerCase().includes('full');
+          if (isRoomFull) {
+            errElem.innerHTML = `
+              <div class="text-amber-300 font-bold mb-1">${res.error}</div>
+              <button onclick="window.phoneController.submitSpectateRoom()" class="mt-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-teal-300 font-bold rounded-xl border border-slate-700 text-xs inline-flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-eye text-teal-400"></i>
+                <span>Tune in as Spectator Instead</span>
+              </button>
+            `;
+          } else {
+            errElem.textContent = res.error || 'Failed to join room';
+          }
           errElem.classList.remove('hidden');
         }
         document.getElementById('modal-ctrl-join-room')?.classList.remove('hidden');
@@ -162,7 +175,7 @@ export class PhoneControllerApp {
     const code = codeInput?.value?.trim()?.toUpperCase();
     const pwd = pwdInput?.value?.trim() || undefined;
 
-    if (!code || code.length < 3) {
+    if (!code || code.length < 2) {
       const errElem = document.getElementById('ctrl-join-error-text');
       if (errElem) {
         errElem.textContent = 'Please enter a valid room code';
@@ -172,6 +185,32 @@ export class PhoneControllerApp {
     }
 
     this.connectToVirtualRoom(code, pwd);
+  }
+
+  public submitSpectateRoom(): void {
+    const codeInput = document.getElementById('ctrl-join-code-input') as HTMLInputElement;
+    const pwdInput = document.getElementById('ctrl-join-pwd-input') as HTMLInputElement;
+    const code = (codeInput?.value?.trim()?.toUpperCase()) || this.roomCode;
+    const pwd = pwdInput?.value?.trim() || undefined;
+
+    if (!code || code.length < 2) {
+      const errElem = document.getElementById('ctrl-join-error-text');
+      if (errElem) {
+        errElem.textContent = 'Please enter a valid room code';
+        errElem.classList.remove('hidden');
+      }
+      return;
+    }
+
+    let url = `/?room=${encodeURIComponent(code)}`;
+    if (pwd) url += `&pwd=${encodeURIComponent(pwd)}`;
+    window.location.href = url;
+  }
+
+  public switchToSpectator(): void {
+    let url = `/?room=${encodeURIComponent(this.roomCode)}`;
+    if (this.roomPassword) url += `&pwd=${encodeURIComponent(this.roomPassword)}`;
+    window.location.href = url;
   }
 
   private updatePlayerBadge(): void {
