@@ -249,54 +249,108 @@
             </button>
         </div>
     <!-- VIP LOBBY CONTROL OVERLAY (Shown when in lobby before game starts) -->
-    <div id="ctrl-lobby-overlay" class="fixed inset-0 bg-slate-950/95 backdrop-blur-xl z-40 flex flex-col justify-between p-5 text-center select-none">
-        <div class="space-y-2 mt-2">
-            <div id="ctrl-lobby-role-badge" class="inline-block px-3.5 py-1 rounded-full text-xs font-black font-mono uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+    <div id="ctrl-lobby-overlay" class="fixed inset-0 bg-slate-950/95 backdrop-blur-xl z-40 flex flex-col justify-between p-4 text-center select-none overflow-y-auto">
+        <!-- Top Lobby Header -->
+        <div class="space-y-1 py-1">
+            <div id="ctrl-lobby-role-badge" class="inline-block px-3 py-0.5 rounded-full text-[10px] font-black font-mono uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
                 👑 LOBBY LEADER (PLAYER 1)
             </div>
-            <h2 class="text-2xl font-black text-white tracking-wide">CREW LOBBY</h2>
-            <p id="ctrl-lobby-subtitle" class="text-xs text-slate-400 max-w-xs mx-auto">
-                Tap <strong class="text-teal-300">"Agree to Start"</strong> below when you are ready to set sail!
+            <h2 class="text-xl font-black text-white tracking-wide">CREW LOBBY</h2>
+            <p id="ctrl-lobby-subtitle" class="text-[11px] text-slate-400">
+                Review your classified brief, then tap <strong class="text-teal-300">Ready</strong> to set sail!
             </p>
         </div>
 
-        <!-- Active Room & Crew Info -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 max-w-sm mx-auto w-full space-y-3">
-            <div class="flex items-center justify-between text-xs border-b border-slate-800 pb-2">
-                <span class="text-slate-400 uppercase font-bold">Room Code</span>
-                <span id="ctrl-lobby-room-name" class="font-mono font-black text-teal-300 text-sm">LOCAL</span>
-            </div>
-            <div class="space-y-1.5 text-left">
-                <div class="flex items-center justify-between">
-                    <span class="text-[10px] text-slate-400 font-bold uppercase">Crew Roster</span>
-                    <span id="ctrl-lobby-ready-summary" class="text-[10px] font-mono font-bold text-amber-400">0 / 1 Agreed</span>
-                </div>
-                <div id="ctrl-lobby-crew-list" class="space-y-1.5 text-xs">
-                    <div class="p-2.5 rounded-xl bg-slate-950 border border-teal-500/40 flex items-center justify-between">
-                        <span class="font-bold text-teal-300">🔵 Player 1 (You)</span>
-                        <span class="text-[10px] text-amber-400 font-mono font-bold">⏳ NOT READY</span>
+        <!-- 50:50 Responsive Split Grid (2-column on landscape / 1-column on portrait) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl mx-auto w-full my-auto py-2">
+            
+            <!-- LEFT 50%: Crew Roster & Lock-in Button -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 flex flex-col justify-between space-y-3 text-left">
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between text-xs border-b border-slate-800 pb-2">
+                        <span class="text-slate-400 uppercase font-bold text-[10px]">Room Code</span>
+                        <span id="ctrl-lobby-room-name" class="font-mono font-black text-teal-300 text-sm">LOCAL</span>
+                    </div>
+                    <div class="space-y-1.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] text-slate-400 font-bold uppercase">Crew Roster</span>
+                            <span id="ctrl-lobby-ready-summary" class="text-[10px] font-mono font-bold text-amber-400">0 / 1 Ready</span>
+                        </div>
+                        <div id="ctrl-lobby-crew-list" class="space-y-1.5 text-xs max-h-36 overflow-y-auto pr-1">
+                            <div class="p-2 rounded-xl bg-slate-950 border border-teal-500/40 flex items-center justify-between">
+                                <span class="font-bold text-teal-300">🔵 Player 1 (You)</span>
+                                <span class="text-[10px] text-amber-400 font-mono font-bold">⏳ WAITING</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Ready & Cast Off Buttons -->
+                <div class="space-y-2 pt-1">
+                    <button id="btn-ctrl-toggle-ready" onclick="window.phoneController.toggleReadyState()" class="w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 text-slate-950 font-black py-3 rounded-xl transition shadow-lg shadow-teal-500/20 flex items-center justify-center space-x-2 text-sm active:scale-95 animate-pulse">
+                        <i id="icon-ctrl-ready" class="fa-solid fa-thumbs-up"></i>
+                        <span id="lbl-ctrl-ready">READY</span>
+                    </button>
+
+                    <button id="btn-ctrl-cast-off" onclick="window.phoneController.castOffFromPhone()" class="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 text-slate-950 font-black py-2.5 rounded-xl transition shadow-lg shadow-amber-500/20 flex items-center justify-center space-x-2 text-xs active:scale-95 hidden">
+                        <i class="fa-solid fa-anchor"></i>
+                        <span>CAST OFF ⚓</span>
+                    </button>
+
+                    <p id="ctrl-lobby-waiting-text" class="text-[10px] text-slate-400 font-medium text-center">
+                        Once all crew members are ready, captain casts off!
+                    </p>
+                </div>
             </div>
-        </div>
 
-        <!-- Agree to Start & Cast Off Buttons -->
-        <div class="mb-3 max-w-sm mx-auto w-full space-y-2.5">
-            <!-- Universal Agree to Start Button -->
-            <button id="btn-ctrl-toggle-ready" onclick="window.phoneController.toggleReadyState()" class="w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 text-slate-950 font-black py-4 rounded-2xl transition shadow-xl shadow-teal-500/20 flex items-center justify-center space-x-2 text-base active:scale-95 animate-pulse">
-                <i id="icon-ctrl-ready" class="fa-solid fa-thumbs-up text-lg"></i>
-                <span id="lbl-ctrl-ready">AGREE TO START / I'M READY!</span>
-            </button>
+            <!-- RIGHT 50%: Classified Gary-OS Sabotage Briefing (Anti-Snoop Privacy Guard) -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 flex flex-col justify-between text-left relative overflow-hidden">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <span class="text-[10px] text-rose-400 uppercase font-black tracking-wider flex items-center">
+                        <i class="fa-solid fa-user-secret mr-1.5"></i>GARY-OS SECRET BRIEF
+                    </span>
+                    <span id="ctrl-brief-tier" class="text-[9px] font-mono font-bold text-amber-300">TIER 1</span>
+                </div>
 
-            <!-- Leader Cast Off Button (P1 / Host only, active once crew agreed) -->
-            <button id="btn-ctrl-cast-off" onclick="window.phoneController.castOffFromPhone()" class="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 text-slate-950 font-black py-3 rounded-2xl transition shadow-xl shadow-amber-500/20 flex items-center justify-center space-x-2 text-sm active:scale-95 hidden">
-                <i class="fa-solid fa-anchor"></i>
-                <span>CAST OFF / START EXPEDITION ⚓</span>
-            </button>
+                <!-- A. Concealed / Redacted State (Anti-Snoop Shield) -->
+                <div id="brief-concealed" onclick="window.phoneController.toggleMissionReveal()" class="flex-1 flex flex-col items-center justify-center py-6 px-4 bg-slate-950/80 border-2 border-dashed border-rose-500/30 rounded-xl my-2 cursor-pointer hover:border-rose-400 transition text-center space-y-2 select-none active:scale-98">
+                    <div class="w-10 h-10 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-lg shadow-md">
+                        <i class="fa-solid fa-eye-slash"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-black text-white text-xs uppercase tracking-wide">CONFIDENTIAL ASSIGNMENT</h4>
+                        <p class="text-[10px] text-slate-400 mt-0.5">Tilt phone away from crewmates, then tap:</p>
+                    </div>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-mono font-black text-[11px] shadow-lg shadow-rose-900/40">
+                        <i class="fa-solid fa-unlock-keyhole mr-1.5 text-amber-300"></i>Tap to Reveal Mission
+                    </span>
+                </div>
 
-            <p id="ctrl-lobby-waiting-text" class="text-[11px] text-slate-400 font-medium">
-                Once all crew members agree, the captain will cast off!
-            </p>
+                <!-- B. Revealed State (Confidential Briefing Card) -->
+                <div id="brief-revealed" class="flex-1 flex flex-col justify-between p-3 bg-rose-950/70 border border-rose-500/50 rounded-xl my-2 space-y-2 hidden shadow-inner">
+                    <div class="space-y-1">
+                        <div class="flex items-center justify-between">
+                            <h4 id="ctrl-brief-title" class="font-black text-rose-200 text-xs">The Buzz Beater</h4>
+                            <span id="ctrl-brief-pts" class="text-[10px] font-mono font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded">+150 PTS</span>
+                        </div>
+                        <p id="ctrl-brief-desc" class="text-[11px] text-rose-100 leading-snug">Bank the final catch in the last 5 seconds of the shift.</p>
+                    </div>
+
+                    <div class="bg-rose-900/40 p-2 rounded-lg border border-rose-500/20 text-[10px] space-y-0.5">
+                        <span class="text-rose-400 uppercase font-bold block text-[9px]">Your Plausible Alibi:</span>
+                        <span id="ctrl-brief-excuse" class="text-amber-200 italic font-mono block">"Just clutching it out for the team!"</span>
+                    </div>
+
+                    <button onclick="window.phoneController.toggleMissionReveal()" class="w-full bg-slate-900/80 hover:bg-slate-900 text-slate-300 text-[10px] font-bold py-1.5 rounded-lg border border-slate-700 transition flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-eye-slash text-rose-400"></i>
+                        <span>Hide / Conceal Mission</span>
+                    </button>
+                </div>
+
+                <div class="text-[9px] text-slate-500 text-center">
+                    Keep this secret! Your score is unmasked during Endgame Audit.
+                </div>
+            </div>
         </div>
     </div>
 

@@ -30,6 +30,7 @@ export class PhoneControllerApp {
   };
 
   public isReady: boolean = false;
+  public isMissionRevealed: boolean = false;
   public crewList: any[] = [];
   public isLobbyPhase: boolean = true;
   private activeBounty: SecretBounty | null = null;
@@ -597,6 +598,19 @@ export class PhoneControllerApp {
     if (pts) pts.textContent = `+${bounty.baseRewardPoints * bounty.assignedLevelTier} Merit Pts`;
     if (tier) tier.textContent = `LEVEL ${bounty.assignedLevelTier} TIER (${bounty.assignedLevelTier}x PTS)`;
 
+    // Sync to 50:50 Lobby Brief Card
+    const briefTitle = document.getElementById('ctrl-brief-title');
+    const briefDesc = document.getElementById('ctrl-brief-desc');
+    const briefExcuse = document.getElementById('ctrl-brief-excuse');
+    const briefPts = document.getElementById('ctrl-brief-pts');
+    const briefTier = document.getElementById('ctrl-brief-tier');
+
+    if (briefTitle) briefTitle.textContent = bounty.title;
+    if (briefDesc) briefDesc.textContent = bounty.description;
+    if (briefExcuse) briefExcuse.textContent = `"${(bounty as any).plausibleExcuse || 'The boat tilted so fast I lost my grip!'}"`;
+    if (briefPts) briefPts.textContent = `+${bounty.baseRewardPoints * bounty.assignedLevelTier} PTS`;
+    if (briefTier) briefTier.textContent = `TIER ${bounty.assignedLevelTier}`;
+
     // Ring Nokia chime
     this.soundSystem.play('bounty_ring');
     this.triggerHaptic([40, 60, 40]);
@@ -730,6 +744,21 @@ export class PhoneControllerApp {
     }
   }
 
+  public toggleMissionReveal(): void {
+    this.isMissionRevealed = !this.isMissionRevealed;
+    this.triggerHaptic(20);
+    this.soundSystem.play(this.isMissionRevealed ? 'bounty_ring' : 'pickup');
+    const concealed = document.getElementById('brief-concealed');
+    const revealed = document.getElementById('brief-revealed');
+    if (this.isMissionRevealed) {
+      concealed?.classList.add('hidden');
+      revealed?.classList.remove('hidden');
+    } else {
+      concealed?.classList.remove('hidden');
+      revealed?.classList.add('hidden');
+    }
+  }
+
   private updateReadyButtonUI(): void {
     const btn = document.getElementById('btn-ctrl-toggle-ready');
     const icon = document.getElementById('icon-ctrl-ready');
@@ -738,13 +767,13 @@ export class PhoneControllerApp {
     if (!btn || !lbl || !icon) return;
 
     if (this.isReady) {
-      btn.className = 'w-full bg-gradient-to-r from-emerald-600 to-teal-600 border-2 border-emerald-400 text-white font-black py-4 rounded-2xl transition shadow-xl shadow-emerald-500/30 flex items-center justify-center space-x-2 text-base active:scale-95';
-      icon.className = 'fa-solid fa-check text-xl text-emerald-200';
-      lbl.textContent = 'AGREED! (TAP TO UNREADY)';
+      btn.className = 'w-full bg-gradient-to-r from-emerald-600 to-teal-600 border-2 border-emerald-400 text-white font-black py-3 rounded-xl transition shadow-lg shadow-emerald-500/30 flex items-center justify-center space-x-2 text-sm active:scale-95';
+      icon.className = 'fa-solid fa-check text-lg text-emerald-200';
+      lbl.textContent = 'READY (TAP TO UNREADY)';
     } else {
-      btn.className = 'w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 text-slate-950 font-black py-4 rounded-2xl transition shadow-xl shadow-teal-500/20 flex items-center justify-center space-x-2 text-base active:scale-95 animate-pulse';
-      icon.className = 'fa-solid fa-thumbs-up text-lg';
-      lbl.textContent = "AGREE TO START / I'M READY!";
+      btn.className = 'w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 text-slate-950 font-black py-3 rounded-xl transition shadow-lg shadow-teal-500/20 flex items-center justify-center space-x-2 text-sm active:scale-95 animate-pulse';
+      icon.className = 'fa-solid fa-thumbs-up';
+      lbl.textContent = 'READY';
     }
   }
 

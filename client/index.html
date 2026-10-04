@@ -26,158 +26,199 @@
         </div>
     </div>
 
-    <!-- Top Header Navigation -->
-    <header class="bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-2.5 flex items-center justify-between z-30 shrink-0 h-14">
-        <div class="flex items-center space-x-3">
-            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-teal-400 flex items-center justify-center text-slate-950 font-bold text-lg shadow-lg shadow-amber-500/20">
-                <i class="fa-solid fa-fish-fins"></i>
-            </div>
-            <div>
+    <!-- FULLSCREEN SIMULATION VIEWPORT -->
+    <main class="relative w-screen h-screen overflow-hidden bg-slate-950 select-none flex items-center justify-center">
+
+        <!-- Sea & Boat Canvas taking 100% of the screen -->
+        <canvas id="game-canvas" width="960" height="540" class="w-full h-full object-contain bg-slate-950 pointer-events-auto"></canvas>
+
+        <!-- Floating Live Feed Log (Bottom-Left) -->
+        <div id="live-feed-container" class="absolute bottom-4 left-4 max-w-xs space-y-1.5 pointer-events-none z-20">
+            <!-- Feed messages injected here -->
+        </div>
+
+        <!-- ========================================================= -->
+        <!-- FLOATING TOP HUD (GLASSMORPHIC PILLS OVER THE SEA)       -->
+        <!-- ========================================================= -->
+        <div class="absolute top-3 left-3 right-3 pointer-events-none z-30 flex items-start justify-between gap-2">
+            
+            <!-- TOP LEFT: Clock & Level Quota Badge -->
+            <div class="pointer-events-auto flex items-center space-x-2 sm:space-x-3 bg-slate-900/85 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-800/90 shadow-2xl">
                 <div class="flex items-center space-x-2">
-                    <h1 class="font-bold text-base md:text-lg text-white tracking-wide">FRIENDSLOP FISHING CO.</h1>
-                    <span id="hud-level-badge" class="bg-amber-500/20 text-amber-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-amber-500/30">LEVEL 1 / 5</span>
+                    <i class="fa-regular fa-clock text-amber-400 text-sm"></i>
+                    <span id="hud-timer-clock" class="text-xl sm:text-2xl font-black font-mono text-white tracking-wider">01:30</span>
                 </div>
-                <p id="hud-level-subtitle" class="text-[11px] text-slate-400 hidden sm:block">Sweetwater Shallows — 15-Minute Roguelite Run</p>
+                <div class="h-6 w-px bg-slate-800"></div>
+                <div class="flex flex-col">
+                    <span id="hud-level-badge" class="bg-amber-500/20 text-amber-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold border border-amber-500/30 w-fit">LEVEL 1 / 5</span>
+                    <span id="hud-level-subtitle" class="text-[10px] sm:text-[11px] text-slate-300 font-medium truncate max-w-[140px] sm:max-w-none">Sweetwater Shallows</span>
+                </div>
+
+                <!-- Corporate Contract Live Progress Widget (Compact) -->
+                <div id="hud-contract-card" class="hidden lg:flex items-center space-x-2 pl-2 border-l border-slate-800 text-left">
+                    <i class="fa-solid fa-clipboard-check text-teal-400 text-xs"></i>
+                    <div>
+                        <div class="flex items-center space-x-1.5">
+                            <span id="hud-contract-name" class="text-[11px] font-bold text-white">The Fresh Batch</span>
+                            <span id="hud-contract-badge" class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-teal-500/20 text-teal-300">0 / 25 kg</span>
+                        </div>
+                        <div id="hud-contract-penalty" class="text-[9px] text-slate-400">Soiled fish = 0kg credit</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOP CENTER: Quota Cash Target & Subtle Tilt Balance Gauge -->
+            <div class="pointer-events-auto flex flex-col items-center bg-slate-900/85 backdrop-blur-md px-4 py-1.5 rounded-2xl border border-slate-800/90 shadow-2xl">
+                <div class="flex items-baseline space-x-2">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">QUOTA</span>
+                    <span id="hud-team-cash" class="text-xl sm:text-2xl font-black font-mono text-teal-400">$0</span>
+                    <span class="text-xs text-slate-500 font-mono">/ <span id="hud-quota-target">$250</span></span>
+                </div>
+                <!-- Subtle Tilt Gauge -->
+                <div class="flex items-center space-x-1.5 font-mono text-[9px] text-slate-400 mt-0.5">
+                    <span>L</span>
+                    <div class="w-20 sm:w-28 h-1.5 bg-slate-950 rounded-full border border-slate-800 overflow-hidden relative">
+                        <div id="tilt-gauge-bar" class="h-full bg-teal-400 transition-all duration-75" style="width: 50%;"></div>
+                    </div>
+                    <span>R</span>
+                    <span id="hud-tilt-deg" class="text-amber-300 font-bold ml-1">0.0°</span>
+                </div>
+            </div>
+
+            <!-- TOP RIGHT: Connect Phones Pill & In-Game Menu Gear Button -->
+            <div class="pointer-events-auto flex items-center space-x-2">
+                <!-- Room Badge (Visible when Remote) -->
+                <div id="hud-room-badge" class="hidden flex items-center space-x-2 bg-slate-900/85 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-teal-500/40 shadow-2xl">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase">ROOM:</span>
+                    <span id="hud-room-code" class="font-mono font-black text-xs sm:text-sm text-teal-300">FISH</span>
+                    <i id="hud-room-lock" class="fa-solid fa-lock text-xs text-amber-400 hidden" title="Password Protected"></i>
+                    <button onclick="window.gameApp.copyRoomLink()" title="Copy Invite Link" class="text-xs text-slate-400 hover:text-teal-300 ml-0.5 p-1">
+                        <i class="fa-regular fa-copy"></i>
+                    </button>
+                </div>
+
+                <!-- Connect Phones Button -->
+                <button onclick="window.gameApp.togglePhoneModal()" class="bg-teal-600/85 hover:bg-teal-500 backdrop-blur-md text-white px-3 py-2 rounded-2xl font-bold text-xs transition flex items-center space-x-1.5 border border-teal-500/40 shadow-2xl shadow-teal-950/40">
+                    <i class="fa-solid fa-qrcode text-amber-300 text-xs"></i>
+                    <span class="hidden sm:inline">Phones</span>
+                </button>
+
+                <!-- Host Settings / Gear Menu Button -->
+                <button id="btn-in-game-menu" onclick="window.gameApp.toggleInGameMenu()" title="Host Settings Menu (Esc)" class="w-9 h-9 rounded-2xl bg-slate-900/85 hover:bg-slate-800 backdrop-blur-md flex items-center justify-center text-slate-200 border border-slate-700/80 shadow-2xl hover:text-teal-400 transition">
+                    <i class="fa-solid fa-gear text-sm"></i>
+                </button>
+
+                <!-- Hidden helper for script compatibility -->
+                <span id="hud-mode-text" class="hidden">Play Mode</span>
             </div>
         </div>
 
-            <!-- Room Code & Lock Badge (Visible in Remote Mode) -->
-            <div id="hud-room-badge" class="hidden flex items-center space-x-2 bg-slate-800/90 px-3 py-1 rounded-xl border border-teal-500/40 shadow-md">
-                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">ROOM:</span>
-                <span id="hud-room-code" class="font-mono font-black text-sm text-teal-300">FISH</span>
-                <i id="hud-room-lock" class="fa-solid fa-lock text-xs text-amber-400 hidden" title="Password Protected"></i>
-                <button onclick="window.gameApp.copyRoomLink()" title="Copy Invite Link" class="text-xs text-slate-400 hover:text-teal-300 ml-1 p-1">
-                    <i class="fa-regular fa-copy"></i>
+    </main>
+
+    <!-- ========================================================= -->
+    <!-- MODAL: HOST IN-GAME MENU & PAUSE OVERLAY                 -->
+    <!-- ========================================================= -->
+    <div id="modal-in-game-menu" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 text-center">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center">
+                        <i class="fa-solid fa-gear"></i>
+                    </div>
+                    <h3 class="text-base font-black text-white uppercase tracking-wider">Host Control Menu</h3>
+                </div>
+                <button onclick="window.gameApp.toggleInGameMenu()" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
 
-            <!-- Return to Title Menu Button -->
-            <button onclick="window.gameApp.showTitleScreen()" class="bg-slate-800 hover:bg-slate-700 text-amber-300 px-3 py-1.5 rounded-xl border border-amber-500/40 font-bold transition flex items-center space-x-1.5 shadow-md">
-                <i class="fa-solid fa-house"></i>
-                <span class="hidden md:inline text-xs">Title Menu</span>
-            </button>
+            <!-- Primary Actions -->
+            <div class="space-y-2 text-xs">
+                <button onclick="window.gameApp.toggleInGameMenu()" class="w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-black py-3 rounded-2xl transition shadow-lg shadow-teal-500/20 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-play"></i>
+                    <span>RESUME EXPEDITION</span>
+                </button>
 
-            <!-- Play Mode Selector Button -->
-            <button onclick="window.gameApp.showTitleScreen()" class="bg-slate-800 hover:bg-slate-700 text-teal-300 px-3 py-1.5 rounded-xl border border-teal-500/40 font-bold transition flex items-center space-x-1.5 shadow-md">
-                <i class="fa-solid fa-users"></i>
-                <span id="hud-mode-text" class="hidden md:inline text-xs">Play Mode</span>
-            </button>
-
-            <button onclick="window.gameApp.togglePhoneModal()" class="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white px-3 py-1.5 rounded-xl font-bold transition flex items-center space-x-1.5 shadow-lg shadow-teal-900/30">
-                <i class="fa-solid fa-qrcode text-amber-300"></i>
-                <span>Connect Phones</span>
-            </button>
-            <button onclick="window.gameApp.toggleFishopedia()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl border border-slate-700 font-medium transition">
-                <i class="fa-solid fa-book-open mr-1 text-teal-400"></i><span class="hidden md:inline">Fishopedia</span>
-            </button>
-            <button onclick="window.gameApp.toggleGaryPhone()" class="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white px-3 py-1.5 rounded-xl font-bold transition flex items-center space-x-1.5 shadow-lg shadow-rose-900/30">
-                <i class="fa-solid fa-mobile-screen animate-pulse"></i>
-                <span>Gary-OS</span>
-            </button>
-            <button id="btn-audio" onclick="window.gameApp.toggleAudio()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 border border-slate-700">
-                <i class="fa-solid fa-volume-high text-teal-400"></i>
-            </button>
-        </div>
-    </header>
-
-    <!-- MAIN DUAL-PANE WORKSPACE -->
-    <div class="main-viewport">
-
-        <!-- Left: Game Simulation Canvas & Live HUD -->
-        <div class="canvas-pane bg-slate-950">
-            
-            <!-- Live Top HUD Bar (Timer, Quota, Tilt Gauge) -->
-            <div class="z-20 bg-slate-900/90 backdrop-blur px-5 py-2 border-b border-slate-800 flex items-center justify-between shrink-0">
-                
-                <!-- 90s Level Clock & Quota -->
-                <div class="flex items-center space-x-6">
-                    <!-- Level Clock -->
-                    <div class="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-                        <i class="fa-regular fa-clock text-amber-400"></i>
-                        <span id="hud-timer-clock" class="text-xl font-black font-mono text-white">01:30</span>
-                    </div>
-
-                    <!-- Quota Progress -->
-                    <div>
-                        <span class="text-[10px] text-slate-400 uppercase font-bold block">Level Target Quota</span>
-                        <div class="flex items-baseline space-x-1.5 font-mono">
-                            <span id="hud-team-cash" class="text-xl font-black text-teal-400">$0</span>
-                            <span class="text-xs text-slate-500">/ <span id="hud-quota-target">$250</span></span>
-                        </div>
-                    </div>
-
-                    <!-- Corporate Contract Live Progress Widget -->
-                    <div id="hud-contract-card" class="hidden md:flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-teal-500/30">
-                        <i class="fa-solid fa-clipboard-check text-teal-400"></i>
-                        <div class="text-left">
-                            <div class="flex items-center space-x-1.5">
-                                <span id="hud-contract-name" class="text-[11px] font-bold text-white">The Fresh Batch</span>
-                                <span id="hud-contract-badge" class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-teal-500/20 text-teal-300">0 / 25 kg</span>
-                            </div>
-                            <div id="hud-contract-penalty" class="text-[9px] text-slate-400">Soiled fish = 0kg credit</div>
-                        </div>
-                    </div>
-
-                    <!-- Boat Tilt Gauge & Capsizing Alert -->
-                    <div class="hidden sm:flex flex-col items-center">
-                        <span class="text-[10px] text-slate-400 uppercase font-bold">Boat Balance Tilt</span>
-                        <div class="flex items-center space-x-2 font-mono text-xs">
-                            <span class="text-slate-400">Port</span>
-                            <div class="w-28 h-2 bg-slate-950 rounded-full border border-slate-800 overflow-hidden relative">
-                                <div id="tilt-gauge-bar" class="h-full bg-amber-400 transition-all duration-75" style="width: 50%;"></div>
-                            </div>
-                            <span class="text-slate-400">Starboard</span>
-                        </div>
-                        <span id="hud-tilt-deg" class="text-[10px] font-mono text-amber-300 font-bold">0.0° (Stable)</span>
-                    </div>
-                </div>
-
-                <!-- Reset Run Button -->
-                <div class="flex items-center space-x-2">
-                    <button onclick="window.gameApp.resetSandbox()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-xl border border-slate-700 font-bold transition flex items-center space-x-1">
-                        <i class="fa-solid fa-rotate-left text-amber-400"></i>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="window.gameApp.resetSandbox(); window.gameApp.toggleInGameMenu();" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold border border-amber-500/30 flex items-center justify-center space-x-1.5 transition">
+                        <i class="fa-solid fa-rotate-left"></i>
                         <span>Restart Run</span>
+                    </button>
+                    <button onclick="window.gameApp.showTitleScreen(); window.gameApp.toggleInGameMenu();" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold border border-slate-700 flex items-center justify-center space-x-1.5 transition">
+                        <i class="fa-solid fa-house"></i>
+                        <span>Title Screen</span>
                     </button>
                 </div>
             </div>
 
-            <!-- Canvas Viewport -->
-            <div class="flex-1 min-h-0 min-w-0 flex items-center justify-center p-3 relative bg-slate-950 overflow-hidden">
-                <canvas id="game-canvas" width="960" height="540" class="rounded-2xl border border-slate-800 shadow-2xl bg-slate-900"></canvas>
+            <!-- Utility Modals Trigger -->
+            <div class="grid grid-cols-3 gap-2 text-xs">
+                <button onclick="window.gameApp.togglePhoneModal()" class="p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-teal-500/40 text-teal-300 font-semibold flex flex-col items-center justify-center space-y-1">
+                    <i class="fa-solid fa-qrcode text-sm"></i>
+                    <span class="text-[10px]">QR Codes</span>
+                </button>
+                <button onclick="window.gameApp.toggleFishopedia()" class="p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-teal-500/40 text-slate-300 font-semibold flex flex-col items-center justify-center space-y-1">
+                    <i class="fa-solid fa-book-open text-sm"></i>
+                    <span class="text-[10px]">Fishopedia</span>
+                </button>
+                <button onclick="window.gameApp.toggleGaryPhone()" class="p-2 rounded-xl bg-slate-950 border border-rose-500/30 hover:border-rose-500/60 text-rose-300 font-semibold flex flex-col items-center justify-center space-y-1">
+                    <i class="fa-solid fa-mobile-screen text-sm"></i>
+                    <span class="text-[10px]">Gary-OS</span>
+                </button>
+            </div>
 
-                <!-- Floating Live Feed Log -->
-                <div id="live-feed-container" class="absolute bottom-4 left-4 max-w-xs space-y-1.5 pointer-events-none z-10">
-                    <!-- Feed messages injected here -->
+            <!-- Audio & Display Settings -->
+            <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800 space-y-2.5 text-xs text-left">
+                <div class="flex items-center justify-between text-slate-300">
+                    <span class="font-bold">Audio & Shanty</span>
+                    <button id="btn-audio" onclick="window.gameApp.toggleAudio()" class="px-2.5 py-1 rounded-lg bg-slate-800 text-teal-400 font-mono font-bold text-[11px] border border-slate-700 hover:bg-slate-700 flex items-center space-x-1">
+                        <i class="fa-solid fa-volume-high"></i>
+                        <span>Toggle</span>
+                    </button>
+                </div>
+                <div class="flex items-center justify-between pt-1 border-t border-slate-850">
+                    <button onclick="window.gameApp.toggleFullscreen()" class="flex items-center space-x-1.5 text-slate-400 hover:text-white transition">
+                        <i class="fa-solid fa-expand text-teal-400"></i>
+                        <span>Toggle Fullscreen</span>
+                    </button>
+                    <button onclick="window.gameApp.toggleScanlines()" class="flex items-center space-x-1.5 text-slate-400 hover:text-white transition">
+                        <i class="fa-solid fa-tv text-teal-400"></i>
+                        <span id="lbl-scanlines">CRT: Off</span>
+                    </button>
                 </div>
             </div>
 
-            <!-- Primary Phone Controller / TV Screen Notice -->
-            <div class="bg-slate-900/90 border-t border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between text-xs gap-3 shrink-0">
-                <div class="flex items-center space-x-3">
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-bold text-[11px] border border-teal-500/40">
-                        <i class="fa-solid fa-mobile-screen mr-1.5 text-amber-300"></i>Primary Controller: Phone / Mobile
-                    </span>
-                    <span class="text-slate-400 text-[11px]">Scan QR code on title screen or tap <strong class="text-white cursor-pointer hover:underline" onclick="window.gameApp.togglePhoneModal()">Connect Phone</strong> to join.</span>
-                </div>
-                <div class="text-[10px] text-slate-600 font-mono flex items-center space-x-2">
-                    <span class="bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">Debug Keyboard: P1 (WASD+J/K) | P2 (Arrows+N/M)</span>
-                </div>
+            <!-- DEBUG MODE TOGGLE (Slides out the Sandbox Drawer) -->
+            <div class="pt-1 border-t border-slate-800">
+                <button onclick="window.gameApp.toggleDebugDrawer(); window.gameApp.toggleInGameMenu();" class="w-full bg-slate-800 hover:bg-slate-700 text-teal-300 font-bold py-2.5 rounded-xl border border-teal-500/40 transition text-xs flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-sliders text-teal-400"></i>
+                    <span>DEBUG & SPAWNER DRAWER</span>
+                </button>
+                <p class="text-[10px] text-slate-500 mt-1">Open real-time deck spawners, physics tuning sliders, and AI bot crew.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- SLIDE-OUT DEBUG & SPAWNER DRAWER                          -->
+    <!-- ========================================================= -->
+    <div id="drawer-debug-sandbox" class="fixed top-0 right-0 bottom-0 w-80 bg-slate-900/95 backdrop-blur-lg border-l border-slate-800 z-40 transform translate-x-full transition-transform duration-300 ease-in-out shadow-2xl flex flex-col">
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between shrink-0">
+            <h3 class="font-bold text-white text-sm flex items-center">
+                <i class="fa-solid fa-sliders text-teal-400 mr-2"></i>Physics & Spawner
+            </h3>
+            <div class="flex items-center space-x-3">
+                <label class="flex items-center space-x-1.5 text-xs text-slate-400 cursor-pointer">
+                    <input type="checkbox" id="check-show-mass" checked onchange="window.gameApp.toggleDebugMass(this.checked)" class="accent-teal-400 rounded">
+                    <span>Mass</span>
+                </label>
+                <button onclick="window.gameApp.toggleDebugDrawer()" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
             </div>
         </div>
 
-        <!-- Right: Real-time Physics & Spawner Debug Panel -->
-        <aside class="sidebar-pane p-4 space-y-4">
-            
-            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-                <h3 class="font-bold text-white text-sm flex items-center">
-                    <i class="fa-solid fa-sliders text-teal-400 mr-2"></i>Physics & Spawner
-                </h3>
-                <label class="flex items-center space-x-1.5 text-xs text-slate-400 cursor-pointer">
-                    <input type="checkbox" id="check-show-mass" checked onchange="window.gameApp.toggleDebugMass(this.checked)" class="accent-teal-400 rounded">
-                    <span>Show Mass</span>
-                </label>
-            </div>
-
+        <div class="flex-1 overflow-y-auto p-4 space-y-4">
             <!-- 1-Click Species Spawner Grid -->
             <div class="space-y-2">
                 <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Spawn Species on Deck</span>
@@ -249,8 +290,13 @@
                     <span id="lbl-bot3-status" class="text-slate-500 text-[11px]">OFF</span>
                 </button>
             </div>
-        </aside>
 
+            <!-- Keyboard shortcut hint -->
+            <div class="pt-2 border-t border-slate-800 text-[10px] text-slate-500 font-mono space-y-1">
+                <div>Keyboard: P1 (WASD+J/K) | P2 (Arrows+N/M)</div>
+                <div>Press [Esc] to open Host Menu</div>
+            </div>
+        </div>
     </div>
 
     <!-- MODAL 0: 30-SECOND DREDGED CRATES POST-ROUND DRAFT -->

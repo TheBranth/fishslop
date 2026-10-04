@@ -138,6 +138,12 @@ export class GameApp {
     window.addEventListener('keydown', (e) => {
       this.keysDown.add(e.code);
 
+      // Escape key toggles Host In-Game Menu
+      if (e.code === 'Escape') {
+        this.toggleInGameMenu();
+        return;
+      }
+
       // Number key voting for 30s Crate Draft
       if (this.engine.state.gameState === 'draft_phase' && this.engine.state.draftState) {
         if (e.code === 'Digit1') this.voteCrate(0);
@@ -586,6 +592,20 @@ export class GameApp {
   public toggleFishopedia(): void {
     const modal = document.getElementById('modal-fishopedia');
     modal?.classList.toggle('hidden');
+  }
+
+  public toggleInGameMenu(): void {
+    const modal = document.getElementById('modal-in-game-menu');
+    modal?.classList.toggle('hidden');
+    this.soundSystem.play('pickup');
+  }
+
+  public toggleDebugDrawer(): void {
+    const drawer = document.getElementById('drawer-debug-sandbox');
+    if (drawer) {
+      drawer.classList.toggle('translate-x-full');
+      this.soundSystem.play('pickup');
+    }
   }
 
   public toggleAudio(): void {
