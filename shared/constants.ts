@@ -159,7 +159,7 @@ export const ROGUELITE_LEVELS: RogueliteLevel[] = [
     id: 'lvl_4_maelstrom',
     name: 'The Maelstrom',
     subtitle: 'Centrifugal Whirlpool — Volcanic Bombfish, Multi-Hazard Minefield & 360° Tilt',
-    targetQuota: 1350,
+    targetQuota: 1250,
     timeLimitSeconds: 90,
     environmentalHazard: 'whirlpool',
     spawnRates: {

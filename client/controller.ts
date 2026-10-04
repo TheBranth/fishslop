@@ -462,10 +462,15 @@ export class PhoneControllerApp {
       if (tiltLabel) tiltLabel.textContent = `${angle.toFixed(1)}°`;
     }
 
-    // Dredged draft popup
+    // Dredged draft & Invoice popup
     if (state.gameState === 'draft_phase' && state.draftState) {
+      document.getElementById('modal-ctrl-invoice')?.classList.add('hidden');
       this.renderDraftModal(state.draftState);
+    } else if (state.gameState === 'invoice_phase' && state.garyInvoice) {
+      document.getElementById('modal-ctrl-draft')?.classList.add('hidden');
+      this.renderInvoiceModal(state.garyInvoice);
     } else {
+      document.getElementById('modal-ctrl-invoice')?.classList.add('hidden');
       document.getElementById('modal-ctrl-draft')?.classList.add('hidden');
     }
 
@@ -660,6 +665,31 @@ export class PhoneControllerApp {
     // Ring Nokia chime
     this.soundSystem.play('bounty_ring');
     this.triggerHaptic([40, 60, 40]);
+  }
+
+  // --- Uncle Gary-OS Operating Invoice Modal ---
+
+  private renderInvoiceModal(invoice: any): void {
+    const modal = document.getElementById('modal-ctrl-invoice');
+    const grossElem = document.getElementById('ctrl-invoice-gross');
+    const dedElem = document.getElementById('ctrl-invoice-deduction');
+    const surplusElem = document.getElementById('ctrl-invoice-surplus');
+    const itemsContainer = document.getElementById('ctrl-invoice-items');
+
+    if (grossElem) grossElem.textContent = `+$${invoice.grossEarned}`;
+    if (dedElem) dedElem.textContent = `-$${invoice.totalDeduction}`;
+    if (surplusElem) surplusElem.textContent = `+$${invoice.netSurplus}`;
+
+    if (itemsContainer && invoice.items) {
+      itemsContainer.innerHTML = invoice.items.map((it: any) => `
+        <div class="flex items-center justify-between text-slate-300">
+          <span class="truncate max-w-[190px]">${it.emoji} ${it.reason}</span>
+          <span class="text-rose-400 font-bold shrink-0">-$${it.amount}</span>
+        </div>
+      `).join('');
+    }
+
+    modal?.classList.remove('hidden');
   }
 
   // --- 30s Dredged Crate Draft ---

@@ -22,7 +22,7 @@ export const DREDGED_CRATES_POOL: DredgedCrate[] = [
     name: 'Fillet Cutting Board',
     emoji: '🔪',
     category: 'station',
-    cost: 150,
+    cost: 110,
     description: '3-Chop Slicing minigame. Turns whole fish into 2.2x value Sashimi Fillets.',
     stationType: 'cutting_board'
   },
@@ -31,7 +31,7 @@ export const DREDGED_CRATES_POOL: DredgedCrate[] = [
     name: 'Deep Fryer Station',
     emoji: '🍳',
     category: 'station',
-    cost: 250,
+    cost: 180,
     description: 'Heat Sweet-Spot minigame. Sizzles fish and boots into 2.5x Crispy dishes.',
     stationType: 'deep_fryer'
   },
@@ -40,7 +40,7 @@ export const DREDGED_CRATES_POOL: DredgedCrate[] = [
     name: 'Broth Soup Kettle',
     emoji: '🍲',
     category: 'station',
-    cost: 350,
+    cost: 240,
     description: 'Stirring Swirl minigame. Boils hard-shell turtles into 3.0x Seafood Chowder.',
     stationType: 'soup_pot'
   },
@@ -49,7 +49,7 @@ export const DREDGED_CRATES_POOL: DredgedCrate[] = [
     name: 'Sanitary Wash Basin',
     emoji: '🧼',
     category: 'station',
-    cost: 180,
+    cost: 130,
     description: 'Double Duty: Cleans squid ink off TV camera and scrubs soiled fish for +30% sanitary value.',
     stationType: 'rinse_station'
   },
@@ -58,7 +58,7 @@ export const DREDGED_CRATES_POOL: DredgedCrate[] = [
     name: 'Bamboo Sushi Mat',
     emoji: '🍣',
     category: 'station',
-    cost: 300,
+    cost: 220,
     description: 'Rolling minigame. Wraps sliced fillets into 4.0x luxury Nigiri and Dragon rolls.',
     stationType: 'sushi_station'
   },
@@ -69,7 +69,7 @@ export const DREDGED_CRATES_POOL: DredgedCrate[] = [
     name: 'Industrial Squeegee',
     emoji: '🪣',
     category: 'perk',
-    cost: 120,
+    cost: 80,
     description: 'Automatically dissolves slippery eel slime and tuna grease within 160px.',
     perkEffect: 'auto_squeegee'
   },
@@ -78,7 +78,7 @@ export const DREDGED_CRATES_POOL: DredgedCrate[] = [
     name: 'Magnetic Deck Boots',
     emoji: '🧲',
     category: 'perk',
-    cost: 180,
+    cost: 130,
     description: 'Crew members gain high traction and cannot be slipped by oil or eel grease.',
     perkEffect: 'anti_slip'
   },
@@ -87,7 +87,7 @@ export const DREDGED_CRATES_POOL: DredgedCrate[] = [
     name: 'Heavy Hull Ballast',
     emoji: '🚢',
     category: 'perk',
-    cost: 200,
+    cost: 150,
     description: 'Stabilizes the vessel, reducing maximum boat tilt angles by 40%.',
     perkEffect: 'ballast_tilt_reduction'
   },
@@ -96,7 +96,7 @@ export const DREDGED_CRATES_POOL: DredgedCrate[] = [
     name: 'Turbo-Crank Reel',
     emoji: '⚡',
     category: 'perk',
-    cost: 160,
+    cost: 120,
     description: 'Expands the green catcher bar sweet-spot by 50% for all crew rods.',
     perkEffect: 'wide_sweet_spot'
   },
@@ -105,7 +105,7 @@ export const DREDGED_CRATES_POOL: DredgedCrate[] = [
     name: 'Cryo Flash Freezer',
     emoji: '🧊',
     category: 'perk',
-    cost: 220,
+    cost: 160,
     description: 'Doubles the payout of the next 5 fish deposited into the Cooler Box.',
     perkEffect: 'cooler_bonus'
   },
@@ -114,7 +114,7 @@ export const DREDGED_CRATES_POOL: DredgedCrate[] = [
     name: 'Rocket Harpoon Winch',
     emoji: '🚀',
     category: 'perk',
-    cost: 300,
+    cost: 220,
     description: 'Spawns an automatic line that periodically yanks heavy offshore catches onto deck.',
     perkEffect: 'auto_harpoon'
   },
@@ -123,7 +123,7 @@ export const DREDGED_CRATES_POOL: DredgedCrate[] = [
     name: 'Reinforced Oak Gunwales',
     emoji: '🪵',
     category: 'perk',
-    cost: 140,
+    cost: 90,
     description: 'Adds raised deck lip barriers that prevent fish from washing overboard unless capsizing.',
     perkEffect: 'high_rails'
   }

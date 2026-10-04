@@ -33,6 +33,7 @@ import { validateStationInteraction } from '../../shared/recipes';
 import { generateGatedSecretBounty } from '../../shared/bounties';
 import { DredgedCrate, generateDredgedDraft, SKIP_DRAFT_CRATE } from '../../shared/upgrades';
 import { generateCorporateContract, ActiveContractState } from '../../shared/contracts';
+import { generateGaryInvoice, GaryInvoice } from '../../shared/garyInvoice';
 
 export class LocalGameEngine {
   public state: GameRoomState;
@@ -60,9 +61,12 @@ export class LocalGameEngine {
   public deckFriction: number = 0.90;
   public slideMultiplier: number = 0.22;
 
+  public invoiceTimeLeft: number = 8.0;
+
   public onEvent?: (type: string, data: any, extra?: any) => void;
   public onBountyUpdate?: (bounty: SecretBounty) => void;
   public onContractUpdate?: (contract: ActiveContractState) => void;
+  public onInvoiceStart?: (invoice: GaryInvoice) => void;
   public onDraftStart?: (draft: DredgedDraftState) => void;
   public onDraftUpdate?: (draft: DredgedDraftState) => void;
   public onLevelComplete?: (summary: any) => void;
@@ -149,6 +153,7 @@ export class LocalGameEngine {
         { id: 'msg_0', text: `🏁 LEVEL 1: Sweetwater Shallows — Bank $${firstLevel.targetQuota} in 90s!`, type: 'info', time: Date.now() },
         { id: 'msg_1', text: '🎣 Cast from railings (Space / J / Enter) & sort into Cooler!', type: 'info', time: Date.now() }
       ],
+      garyInvoice: null,
       draftState: null,
       krakenBoss: null,
       activePerks: this.activePerks,
@@ -207,6 +212,16 @@ export class LocalGameEngine {
   public tick(): void {
     const { state } = this;
     const boatCenterX = CANVAS_WIDTH / 2;
+
+    // 0. Post-Round Uncle Gary Operating Invoice Tick
+    if (state.gameState === 'invoice_phase') {
+      this.invoiceTimeLeft -= 1 / 60;
+      if (this.invoiceTimeLeft <= 0) {
+        this.startDraftPhase();
+      }
+      this.updateOceanShadows();
+      return;
+    }
 
     // 1. Post-Round 30-Second Dredged Crate Draft Phase Tick
     if (state.gameState === 'draft_phase' && state.draftState) {
@@ -1698,12 +1713,36 @@ export class LocalGameEngine {
       return;
     }
 
-    // Level Completed! If it was Level 4 (before boss), or earlier, launch 30s Crate Draft!
+    // Level Completed! If it was Level 4 (before boss), or earlier, launch Uncle Gary's Invoice & Day Rent Deduction!
     if (this.currentLevelIndex < 4) {
-      this.startDraftPhase();
+      this.startInvoicePhase();
     } else {
       this.triggerRunVictory();
     }
+  }
+
+  private startInvoicePhase(): void {
+    this.state.gameState = 'invoice_phase';
+    const invoice = generateGaryInvoice(
+      this.state.level.levelNumber,
+      this.state.level.name,
+      this.levelTeamCashEarned,
+      this.state.level.targetQuota
+    );
+    this.state.garyInvoice = invoice;
+
+    // Apply the Day Rent Cash Sink!
+    this.state.teamCash = Math.max(0, this.state.teamCash - invoice.totalDeduction);
+    this.invoiceTimeLeft = 8.0;
+
+    this.onEvent?.('sfx', 'bell');
+    this.addFeedMessage(`📜 GARY-OS INVOICE: -$${invoice.totalDeduction} day rent deducted! Net surplus kept: +$${invoice.netSurplus}!`, 'hazard');
+    this.onInvoiceStart?.(invoice);
+  }
+
+  public proceedFromInvoiceToDraft(): void {
+    if (this.state.gameState !== 'invoice_phase') return;
+    this.startDraftPhase();
   }
 
   private startDraftPhase(): void {
@@ -2206,6 +2245,7 @@ export class LocalGameEngine {
     this.state.teamCash = 0;
     this.state.boatAngle = 0;
     this.state.items = [];
+    this.state.garyInvoice = null;
     this.state.draftState = null;
     this.state.krakenBoss = null;
     this.unlockedStations = new Set(['cooler', 'trash_chute']);

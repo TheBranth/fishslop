@@ -5,6 +5,7 @@ import { MinigameController } from './engine/MinigameController';
 import { NetworkManager } from './engine/NetworkManager';
 import { FISH_REGISTRY } from '../shared/fishDatabase';
 import { DredgedDraftState, EndgameAuditRecord, SecretBounty, PlayerInput } from '../shared/types';
+import { GaryInvoice } from '../shared/garyInvoice';
 
 export class GameApp {
   public engine: LocalGameEngine;
@@ -73,6 +74,14 @@ export class GameApp {
         this.remoteState = state;
         if (state && state.gameState === 'playing') {
           this.hideTitleScreen();
+          document.getElementById('modal-gary-invoice')?.classList.add('hidden');
+          document.getElementById('modal-dredged-draft')?.classList.add('hidden');
+        } else if (state && state.gameState === 'invoice_phase' && state.garyInvoice) {
+          this.renderGaryInvoiceModal(state.garyInvoice);
+        } else if (state && state.gameState === 'draft_phase' && state.draftState) {
+          document.getElementById('modal-gary-invoice')?.classList.add('hidden');
+          this.renderDraftModal(state.draftState);
+          document.getElementById('modal-dredged-draft')?.classList.remove('hidden');
         }
       }
     };
@@ -293,8 +302,14 @@ export class GameApp {
       if (penalty) penalty.textContent = contract.instantPenaltyRule;
     };
 
+    // Uncle Gary-OS Operating Deductions Invoice
+    this.engine.onInvoiceStart = (invoice: GaryInvoice) => {
+      this.renderGaryInvoiceModal(invoice);
+    };
+
     // 30s Dredged Crate Draft Phase Open
     this.engine.onDraftStart = (draft: DredgedDraftState) => {
+      document.getElementById('modal-gary-invoice')?.classList.add('hidden');
       this.renderDraftModal(draft);
       document.getElementById('modal-dredged-draft')?.classList.remove('hidden');
     };
@@ -311,6 +326,40 @@ export class GameApp {
     this.engine.onVictory = (audit: EndgameAuditRecord[]) => {
       this.renderAuditModal('🏆 ALL 5 LEVELS CLEARED!', 'The Eldritch Kraken was vanquished and the boat returned triumphant!', audit, true);
     };
+  }
+
+  // --- Uncle Gary-OS Operating Invoice UI Rendering ---
+
+  public proceedFromInvoice(): void {
+    document.getElementById('modal-gary-invoice')?.classList.add('hidden');
+    this.engine.proceedFromInvoiceToDraft();
+  }
+
+  private renderGaryInvoiceModal(invoice: GaryInvoice): void {
+    const modal = document.getElementById('modal-gary-invoice');
+    const grossElem = document.getElementById('invoice-gross-amount');
+    const itemsList = document.getElementById('invoice-items-list');
+    const dedElem = document.getElementById('invoice-total-deduction');
+    const surplusElem = document.getElementById('invoice-net-surplus');
+
+    if (grossElem) grossElem.textContent = `+$${invoice.grossEarned}`;
+    if (dedElem) dedElem.textContent = `-$${invoice.totalDeduction}`;
+    if (surplusElem) surplusElem.textContent = `+$${invoice.netSurplus}`;
+
+    if (itemsList) {
+      itemsList.innerHTML = invoice.items.map(item => `
+        <div class="flex items-center justify-between text-slate-300 py-1 border-b border-slate-900/80">
+          <span class="flex items-center gap-1.5 truncate max-w-[280px] sm:max-w-none">
+            <span>${item.emoji}</span>
+            <span>${item.reason}</span>
+          </span>
+          <span class="font-bold text-rose-400 font-mono ml-2 shrink-0">-$${item.amount}</span>
+        </div>
+      `).join('');
+    }
+
+    modal?.classList.remove('hidden');
+    this.soundSystem.play('bell');
   }
 
   // --- 30s Dredged Crate Draft UI Rendering ---

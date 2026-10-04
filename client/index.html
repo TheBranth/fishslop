@@ -299,6 +299,54 @@
         </div>
     </div>
 
+    <!-- MODAL: UNCLE GARY-OS ITEMIZIED CONSOLIDATED INVOICE (CASH SINK) -->
+    <div id="modal-gary-invoice" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border-2 border-amber-500/50 rounded-3xl p-6 max-w-lg w-full flex flex-col space-y-4 shadow-2xl relative font-sans">
+            
+            <!-- Receipt Header -->
+            <div class="text-center border-b border-dashed border-amber-500/40 pb-3 space-y-1">
+                <div class="inline-flex items-center space-x-1.5 px-3 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-widest">
+                    <i class="fa-solid fa-receipt"></i>
+                    <span>UNCLE GARY-OS CONSOLIDATED BILL</span>
+                </div>
+                <h2 class="text-xl sm:text-2xl font-black text-white tracking-wide">OPERATING DEDUCTIONS INVOICE</h2>
+                <p class="text-[11px] text-slate-400 italic">"Making slop, breaking lines, taking your money"</p>
+            </div>
+
+            <!-- Receipt Content Tape -->
+            <div class="bg-slate-950/80 rounded-2xl p-4 border border-slate-800 font-mono text-xs space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                    <span class="text-slate-400">GROSS CATCH LANDED:</span>
+                    <span id="invoice-gross-amount" class="text-emerald-400 font-black text-sm">+$0</span>
+                </div>
+
+                <div class="text-[10px] uppercase text-amber-400 font-bold tracking-wider">
+                    MANDATORY CORPORATE SURCHARGES & EXPENSES:
+                </div>
+
+                <div id="invoice-items-list" class="space-y-2 text-[11px]">
+                    <!-- Injected lines -->
+                </div>
+
+                <div class="pt-2 border-t border-dashed border-slate-800 flex items-center justify-between text-rose-400 font-bold">
+                    <span>TOTAL DAY RENT DEDUCTED:</span>
+                    <span id="invoice-total-deduction" class="font-black text-sm">-$0</span>
+                </div>
+
+                <div class="pt-2 border-t-2 border-emerald-500/30 flex items-center justify-between text-emerald-300 font-bold text-sm bg-emerald-950/30 p-2.5 rounded-xl">
+                    <span>NET CREW SURPLUS KEPT:</span>
+                    <span id="invoice-net-surplus" class="font-black text-lg text-emerald-400 font-mono">+$0</span>
+                </div>
+            </div>
+
+            <!-- Action Button -->
+            <button onclick="window.gameApp.proceedFromInvoice()" class="w-full bg-gradient-to-r from-amber-500 to-emerald-400 hover:from-amber-400 hover:to-emerald-300 text-slate-950 font-black text-xs sm:text-sm py-3.5 rounded-2xl shadow-xl shadow-amber-500/20 transition flex items-center justify-center space-x-2 active:scale-95">
+                <span>PROCEED TO DREDGED CRATE DRAFT</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
     <!-- MODAL 0: 30-SECOND DREDGED CRATES POST-ROUND DRAFT -->
     <div id="modal-dredged-draft" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-slate-900 border-2 border-teal-500/40 rounded-3xl p-6 max-w-2xl w-full flex flex-col space-y-5 shadow-2xl">

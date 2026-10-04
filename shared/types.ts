@@ -1,6 +1,7 @@
 // Master Shared Types for Friendslop Fishing Co. (5-Level Roguelite & Multiplayer)
 
 import { DredgedCrate } from './upgrades';
+import { GaryInvoice } from './garyInvoice';
 
 export type PlayerColor = 'blue' | 'yellow' | 'red' | 'green';
 export type StationType = 'cooler' | 'cutting_board' | 'deep_fryer' | 'soup_pot' | 'rod_rack' | 'trash_chute' | 'sushi_station' | 'rinse_station';
@@ -263,7 +264,7 @@ export interface GameRoomState {
   roomCode: string;
   level: RogueliteLevel;
   currentLevelIndex: number; // 0 to 4 (5 levels)
-  gameState: 'lobby' | 'playing' | 'draft_phase' | 'level_complete' | 'game_over' | 'victory_audit';
+  gameState: 'lobby' | 'playing' | 'invoice_phase' | 'draft_phase' | 'level_complete' | 'game_over' | 'victory_audit';
   timeLeft: number;
   teamCash: number;
   quotaTarget: number;
@@ -274,6 +275,7 @@ export interface GameRoomState {
   items: EntityItem[];
   stations: WorkStation[];
   feedMessages: FeedMessage[];
+  garyInvoice?: GaryInvoice | null;
   draftState: DredgedDraftState | null;
   krakenBoss: KrakenBossState | null;
   activePerks: Set<string>;
