@@ -1020,28 +1020,30 @@ export class GameApp {
 
     const crewList: any[] = data?.crewList || [];
     let html = `
-      <div class="p-2.5 rounded-xl bg-slate-950 border border-teal-500/40 flex items-center justify-between">
-        <span class="font-bold text-teal-300">👑 Host TV Display</span>
-        <span class="text-[10px] text-emerald-400 font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30">HOST</span>
+      <div class="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between text-xs">
+        <span class="font-medium text-slate-400 flex items-center gap-2">
+          <i class="fa-solid fa-tv text-teal-400"></i> TV Display (Screen Monitor)
+        </span>
+        <span class="text-[10px] text-teal-400 font-mono font-bold px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/30">MONITOR</span>
       </div>
     `;
 
-    if (crewList.length > 0) {
-      const controllers = crewList.filter((c: any) => c.role === 'controller');
+    const controllers = crewList.filter((c: any) => c.role === 'controller');
+    if (controllers.length > 0) {
       const readyCount = controllers.filter((c: any) => c.isReady).length;
       const totalCount = controllers.length;
       const allReady = totalCount > 0 && readyCount === totalCount;
 
       controllers.forEach((client: any) => {
-        const isLeader = client.playerIndex === 0;
+        const isCaptain = client.isHost || client.playerIndex === 0;
         const ready = Boolean(client.isReady);
         html += `
           <div class="p-2.5 rounded-xl bg-slate-950 border ${ready ? 'border-emerald-500/50 shadow-sm shadow-emerald-500/10' : 'border-slate-800'} flex items-center justify-between">
-            <span class="font-bold ${isLeader ? 'text-amber-300' : 'text-slate-200'}">
-              ${isLeader ? '👑' : '⚓'} ${client.name || `Sailor (P${(client.playerIndex ?? 0) + 1})`}
+            <span class="font-bold ${isCaptain ? 'text-amber-300' : 'text-slate-200'}">
+              ${isCaptain ? '👑 Captain P1 (Host Phone)' : `⚓ Sailor (P${(client.playerIndex ?? 0) + 1})`}
             </span>
             <span class="text-[10px] ${ready ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-amber-400 bg-amber-500/10 border-amber-500/30'} px-2 py-0.5 rounded-full border font-mono font-bold">
-              ${ready ? '✓ AGREED' : '⏳ WAITING'}
+              ${ready ? '✓ READY' : '⏳ WAITING'}
             </span>
           </div>
         `;
@@ -1049,25 +1051,25 @@ export class GameApp {
 
       if (castOffLbl) {
         if (allReady) {
-          castOffLbl.textContent = 'CAST OFF / ALL CREW AGREED! ⚓';
+          castOffLbl.textContent = 'ALL CREW READY — CAPTAIN CAN CAST OFF ON PHONE! ⚓';
           if (castOffBtn) {
             castOffBtn.className = 'w-full bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 text-slate-950 font-black py-3 rounded-2xl transition shadow-lg shadow-emerald-500/30 flex items-center justify-center space-x-2 text-sm active:scale-95 animate-pulse';
           }
         } else {
-          castOffLbl.textContent = `CAST OFF (${readyCount}/${totalCount} Agreed)`;
+          castOffLbl.textContent = `WAITING FOR CREW (${readyCount}/${totalCount} Ready) — HOST IS PHONE 1`;
           if (castOffBtn) {
-            castOffBtn.className = 'w-full bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-500 text-white font-black py-3 rounded-2xl transition shadow-lg shadow-teal-500/20 flex items-center justify-center space-x-2 text-sm active:scale-95';
+            castOffBtn.className = 'w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-2xl transition border border-slate-700 flex items-center justify-center space-x-2 text-sm active:scale-95';
           }
         }
       }
     } else {
       html += `
-        <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
-          <span class="font-bold text-slate-400">📱 Waiting for Phone Controllers to scan QR...</span>
-          <span class="text-[10px] text-slate-500 font-mono">0 JOINED</span>
+        <div class="p-3 rounded-xl bg-slate-950 border border-dashed border-teal-500/30 flex items-center justify-between">
+          <span class="font-bold text-teal-300 text-xs">📱 Scan QR code: First phone to connect becomes Captain & Room Host!</span>
+          <span class="text-[10px] text-amber-400 font-mono">WAITING</span>
         </div>
       `;
-      if (castOffLbl) castOffLbl.textContent = 'CAST OFF / START EXPEDITION';
+      if (castOffLbl) castOffLbl.textContent = 'WAITING FOR FIRST PHONE (CAPTAIN) TO CONNECT...';
     }
 
     if (onlineList) onlineList.innerHTML = html;

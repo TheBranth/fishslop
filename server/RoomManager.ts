@@ -4,15 +4,18 @@ import { Server, Socket } from 'socket.io';
 
 export interface VirtualRoomClient {
   socketId: string;
-  role: 'host' | 'controller' | 'viewer';
+  role: 'display' | 'controller' | 'viewer' | 'host';
   name?: string;
   playerIndex?: number;
   isReady?: boolean;
+  isHost?: boolean;
 }
 
 export interface VirtualRoom {
   roomCode: string;
-  hostSocketId: string;
+  displaySocketId: string;    // TV Monitor socket (simulation & canvas)
+  captainSocketId?: string;   // First connected phone controller socket (Captain / Host)
+  hostSocketId: string;       // Alias for displaySocketId for simulation relays
   password?: string;
   hasPassword: boolean;
   clients: Map<string, VirtualRoomClient>;
@@ -55,7 +58,7 @@ export class RoomManager {
    * Creates a new virtual room hosted by hostSocketId with custom room name and optional password
    */
   public createRoom(
-    hostSocketId: string,
+    displaySocketId: string,
     customRoomName?: string,
     password?: string
   ): { success: boolean; room?: VirtualRoom; error?: string } {
@@ -76,7 +79,9 @@ export class RoomManager {
 
     const room: VirtualRoom = {
       roomCode,
-      hostSocketId,
+      displaySocketId,
+      captainSocketId: undefined,
+      hostSocketId: displaySocketId,
       password: cleanPassword,
       hasPassword: Boolean(cleanPassword),
       clients: new Map(),
@@ -84,17 +89,18 @@ export class RoomManager {
       lastActivity: Date.now()
     };
 
-    // Register host as first client
-    room.clients.set(hostSocketId, {
-      socketId: hostSocketId,
-      role: 'host',
-      name: 'Host Display',
-      playerIndex: 0,
-      isReady: true
+    // Register TV Monitor as display (NOT taking player slot 0!)
+    room.clients.set(displaySocketId, {
+      socketId: displaySocketId,
+      role: 'display',
+      name: 'TV Monitor',
+      playerIndex: undefined,
+      isReady: true,
+      isHost: false
     });
 
     this.rooms.set(roomCode, room);
-    this.socketToRoom.set(hostSocketId, roomCode);
+    this.socketToRoom.set(displaySocketId, roomCode);
 
     return { success: true, room };
   }
@@ -146,7 +152,7 @@ export class RoomManager {
     role: 'controller' | 'viewer',
     name?: string,
     password?: string
-  ): { success: boolean; roomCode?: string; playerIndex?: number; hasPassword?: boolean; error?: string } {
+  ): { success: boolean; roomCode?: string; playerIndex?: number; isHost?: boolean; hasPassword?: boolean; error?: string } {
     const room = this.getRoom(roomCode);
     if (!room) {
       return { success: false, error: `Room "${roomCode.toUpperCase()}" not found!` };
@@ -163,20 +169,32 @@ export class RoomManager {
 
     // Assign player slot for controllers
     let playerIndex: number | undefined = undefined;
+    let isHost = false;
     if (role === 'controller') {
       const assigned = this.getAvailablePlayerIndex(room);
       if (assigned === null) {
         return { success: false, error: `Room ${roomCode.toUpperCase()} is full! (Max 4 players)` };
       }
       playerIndex = assigned;
+
+      // The first controller to connect is the Captain / Host!
+      if (!room.captainSocketId || playerIndex === 0) {
+        room.captainSocketId = socketId;
+        isHost = true;
+      }
     }
+
+    const defaultName = role === 'controller'
+      ? (isHost ? 'Captain (P1)' : `Sailor (P${(playerIndex || 0) + 1})`)
+      : 'Spectator';
 
     room.clients.set(socketId, {
       socketId,
       role,
-      name: name || (role === 'controller' ? `Sailor P${(playerIndex || 0) + 1}` : 'Spectator'),
+      name: name || defaultName,
       playerIndex,
-      isReady: false
+      isReady: false,
+      isHost
     });
 
     room.lastActivity = Date.now();
@@ -186,6 +204,7 @@ export class RoomManager {
       success: true,
       roomCode: room.roomCode,
       playerIndex,
+      isHost,
       hasPassword: room.hasPassword
     };
   }
@@ -247,27 +266,39 @@ export class RoomManager {
   /**
    * Handles client or host disconnect
    */
-  public handleSocketDisconnect(socketId: string): { roomCode?: string; wasHost: boolean } {
+  public handleSocketDisconnect(socketId: string): { roomCode?: string; wasDisplay: boolean; wasCaptain: boolean; wasHost: boolean } {
     const roomCode = this.socketToRoom.get(socketId);
     this.socketToRoom.delete(socketId);
 
-    if (!roomCode) return { wasHost: false };
+    if (!roomCode) return { wasDisplay: false, wasCaptain: false, wasHost: false };
 
     const room = this.rooms.get(roomCode);
-    if (!room) return { roomCode, wasHost: false };
+    if (!room) return { roomCode, wasDisplay: false, wasCaptain: false, wasHost: false };
 
-    const wasHost = room.hostSocketId === socketId;
+    const wasDisplay = room.displaySocketId === socketId;
+    const wasCaptain = room.captainSocketId === socketId;
     room.clients.delete(socketId);
 
-    if (wasHost) {
-      // If host disconnected, close room after grace period or immediately
+    if (wasDisplay) {
+      // If the TV display disconnects, close room
       this.rooms.delete(roomCode);
-    } else if (room.clients.size === 0) {
-      // Empty room cleanup
+    } else if (wasCaptain) {
+      // If Captain phone disconnects, promote the next controller (P2 becomes Captain)
+      const remainingControllers = Array.from(room.clients.values()).filter(c => c.role === 'controller');
+      if (remainingControllers.length > 0) {
+        const nextCaptain = remainingControllers[0];
+        nextCaptain.isHost = true;
+        room.captainSocketId = nextCaptain.socketId;
+      } else {
+        room.captainSocketId = undefined;
+      }
+    }
+
+    if (room.clients.size === 0) {
       this.rooms.delete(roomCode);
     }
 
-    return { roomCode, wasHost };
+    return { roomCode, wasDisplay, wasCaptain, wasHost: wasDisplay || wasCaptain };
   }
 
   public getAllRooms(): VirtualRoom[] {

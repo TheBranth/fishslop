@@ -7,8 +7,13 @@ export interface RoomJoinResult {
   success: boolean;
   roomCode?: string;
   playerIndex?: number;
+  isHost?: boolean;
   hasPassword?: boolean;
   error?: string;
+  crewList?: any[];
+  readyCount?: number;
+  controllerCount?: number;
+  allReady?: boolean;
 }
 
 export interface RoomCreateResult {
@@ -23,15 +28,16 @@ export class NetworkManager {
   private socket: Socket | null = null;
   private localBus: BroadcastChannel | null = null;
   public roomCode: string | null = null;
-  public role: 'host' | 'controller' | 'viewer' | 'local' = 'local';
+  public role: 'host' | 'controller' | 'viewer' | 'display' | 'local' = 'local';
   public playerIndex: number = 0;
+  public isHost: boolean = false;
   public isConnected: boolean = false;
 
   // Event Callbacks
   public onStateUpdate?: (state: any) => void;
   public onRemoteInput?: (data: { socketId: string; playerIndex: number; input: PlayerInput }) => void;
-  public onRemotePlayerJoined?: (data: { socketId: string; role: string; name?: string; playerIndex?: number }) => void;
-  public onRemotePlayerLeft?: (data: { socketId: string }) => void;
+  public onRemotePlayerJoined?: (data: { socketId: string; role: string; name?: string; playerIndex?: number; isHost?: boolean; crewList?: any[] }) => void;
+  public onRemotePlayerLeft?: (data: { socketId: string; wasCaptain?: boolean; crewList?: any[] }) => void;
   public onMinigameTrigger?: (data: { stationType: string }) => void;
   public onRemoteDraftVote?: (data: { socketId: string; playerIndex: number; crateId: string }) => void;
 
@@ -202,6 +208,9 @@ export class NetworkManager {
           this.roomCode = res.roomCode || roomCode;
           if (res.playerIndex !== undefined) {
             this.playerIndex = res.playerIndex;
+          }
+          if (res.isHost !== undefined) {
+            this.isHost = Boolean(res.isHost);
           }
         }
         resolve(res);

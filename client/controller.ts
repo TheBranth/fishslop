@@ -30,6 +30,7 @@ export class PhoneControllerApp {
   };
 
   public isReady: boolean = false;
+  public isHost: boolean = false;
   public isMissionRevealed: boolean = false;
   public crewList: any[] = [];
   public isLobbyPhase: boolean = true;
@@ -130,6 +131,9 @@ export class PhoneControllerApp {
           this.playerIndex = res.playerIndex;
           this.playerId = `p${this.playerIndex + 1}`;
         }
+        if (res.isHost !== undefined) {
+          this.isHost = Boolean(res.isHost);
+        }
         document.getElementById('modal-ctrl-join-room')?.classList.add('hidden');
         this.updatePlayerBadge();
         if ((res as any).crewList) {
@@ -176,7 +180,10 @@ export class PhoneControllerApp {
     const dotElem = document.getElementById('ctrl-player-dot');
     const roomElem = document.getElementById('ctrl-room-code');
 
-    if (nameElem) nameElem.textContent = `${prof.name} (${this.playerId.toUpperCase()})`;
+    const isCaptain = this.playerIndex === 0 || this.isHost;
+    const roleTag = isCaptain ? 'Captain (Host)' : 'Deckhand';
+
+    if (nameElem) nameElem.textContent = `${prof.name} (${roleTag} - ${this.playerId.toUpperCase()})`;
     if (dotElem) {
       dotElem.style.backgroundColor = prof.colorHex;
       dotElem.style.boxShadow = `0 0 10px ${prof.colorHex}`;
@@ -689,14 +696,14 @@ export class PhoneControllerApp {
     }
 
     if (rosterElem && this.crewList.length > 0) {
-      rosterElem.innerHTML = this.crewList.map((client: any) => {
+      rosterElem.innerHTML = this.crewList.filter((c: any) => c.role === 'controller').map((client: any) => {
         const isMe = client.playerIndex === this.playerIndex;
-        const isLeader = client.playerIndex === 0;
-        const ready = Boolean(client.isReady || (client.role === 'host' && isLeader));
+        const isLeader = client.playerIndex === 0 || client.isHost;
+        const ready = Boolean(client.isReady);
         return `
           <div class="p-2.5 rounded-xl bg-slate-950 border ${isMe ? 'border-teal-500/60 shadow' : 'border-slate-800'} flex items-center justify-between">
             <span class="font-bold ${isMe ? 'text-teal-300' : 'text-slate-300'}">
-              ${isLeader ? '👑' : '⚓'} ${client.name || (client.playerIndex !== undefined ? `Player ${client.playerIndex + 1}` : 'Crewmate')} ${isMe ? '(You)' : ''}
+              ${isLeader ? '👑 Captain' : '⚓ Sailor'} (P${(client.playerIndex ?? 0) + 1}) ${isMe ? (isLeader ? '(You - Host)' : '(You)') : ''}
             </span>
             <span class="text-[10px] ${ready ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-amber-400 bg-amber-500/10 border-amber-500/30'} px-2 py-0.5 rounded-full border font-mono font-bold">
               ${ready ? '✓ READY' : '⏳ WAITING'}
@@ -706,25 +713,30 @@ export class PhoneControllerApp {
       }).join('');
     }
 
-    // Leader Cast Off Button Visibility & Readiness
-    if (this.playerIndex === 0 && btnCastOff) {
+    // Leader Cast Off Button Visibility & Readiness (Captain Phone Only)
+    const isCaptain = this.playerIndex === 0 || this.isHost;
+    if (isCaptain && btnCastOff) {
       btnCastOff.classList.remove('hidden');
       if (allReady) {
         btnCastOff.className = 'w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-black py-3.5 rounded-2xl transition shadow-xl shadow-emerald-500/30 flex items-center justify-center space-x-2 text-sm active:scale-95 animate-pulse';
-        btnCastOff.innerHTML = '<i class="fa-solid fa-anchor"></i><span>⚡ CAST OFF / ALL CREW AGREED!</span>';
+        btnCastOff.innerHTML = '<i class="fa-solid fa-anchor"></i><span>⚡ CAST OFF / ALL CREW READY!</span>';
       } else {
         btnCastOff.className = 'w-full bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 text-slate-950 font-black py-3 rounded-2xl transition shadow-xl shadow-amber-600/20 flex items-center justify-center space-x-2 text-sm active:scale-95';
-        btnCastOff.innerHTML = `<i class="fa-solid fa-anchor"></i><span>CAST OFF (${readyControllers}/${totalControllers} Agreed)</span>`;
+        btnCastOff.innerHTML = `<i class="fa-solid fa-anchor"></i><span>CAST OFF (${readyControllers}/${totalControllers} Ready)</span>`;
       }
+    } else if (btnCastOff) {
+      btnCastOff.classList.add('hidden');
     }
 
     if (waitingText) {
-      if (allReady) {
-        waitingText.textContent = '🎉 All crew members agreed! Captain can cast off!';
-        waitingText.className = 'text-[11px] text-emerald-400 font-bold animate-pulse';
+      if (isCaptain) {
+        waitingText.textContent = allReady 
+          ? '🎉 All crew members ready! You are Captain (Host) — tap Cast Off when ready!'
+          : `Waiting for crew to ready up (${readyControllers}/${totalControllers} ready). You are Captain (Host).`;
       } else {
-        waitingText.textContent = `Waiting for all crew to agree (${readyControllers}/${totalControllers} ready)...`;
-        waitingText.className = 'text-[11px] text-slate-400 font-medium';
+        waitingText.textContent = allReady
+          ? '🎉 All crew members ready! Waiting for Captain (P1) to cast off...'
+          : `Waiting for crew to ready up (${readyControllers}/${totalControllers} ready)...`;
       }
     }
   }

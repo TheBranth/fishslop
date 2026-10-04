@@ -204,13 +204,14 @@ io.on('connection', (socket: Socket) => {
       io.to(room.roomCode).emit('remotePlayerJoined', {
         socketId: socket.id,
         role,
-        name,
+        name: room.clients.get(socket.id)?.name,
         playerIndex: result.playerIndex,
+        isHost: result.isHost,
         ...summary
       });
     }
 
-    console.log(`[Client Joined] ${role} joined ${roomCode} as Player ${result.playerIndex ?? 'Viewer'}`);
+    console.log(`[Client Joined] ${role} joined ${roomCode} as Player ${result.playerIndex !== undefined ? result.playerIndex + 1 : 'Viewer'} (isHost: ${result.isHost})`);
   });
 
   // 3. Player Input Stream (from Remote Controller or Remote Keyboard Client)
@@ -218,10 +219,10 @@ io.on('connection', (socket: Socket) => {
     const room = roomManager.getRoomForSocket(socket.id);
     if (room) {
       const client = room.clients.get(socket.id);
-      const playerIndex = data.playerIndex ?? client?.playerIndex ?? 1;
+      const playerIndex = data.playerIndex ?? client?.playerIndex ?? 0;
 
-      // Relay directly to the room's host engine
-      io.to(room.hostSocketId).emit('remotePlayerInput', {
+      // Relay directly to the TV display simulation engine
+      io.to(room.displaySocketId).emit('remotePlayerInput', {
         socketId: socket.id,
         playerIndex,
         input: data.input
@@ -229,10 +230,10 @@ io.on('connection', (socket: Socket) => {
     }
   });
 
-  // 4. Host State Broadcast (30-60 Hz snapshots from Host to all connected controllers & viewers)
+  // 4. Host / TV Display State Broadcast (snapshots from TV to all connected controllers & viewers)
   socket.on('hostStateUpdate', (data: { roomCode: string; state: any }) => {
     const room = roomManager.getRoom(data.roomCode);
-    if (room && room.hostSocketId === socket.id) {
+    if (room && room.displaySocketId === socket.id) {
       // Broadcast state to all other clients in the virtual room
       socket.to(room.roomCode).emit('gameStateUpdate', data.state);
     }
@@ -243,9 +244,9 @@ io.on('connection', (socket: Socket) => {
     const room = roomManager.getRoomForSocket(socket.id);
     if (room) {
       const client = room.clients.get(socket.id);
-      io.to(room.hostSocketId).emit('remoteVoteDraftCrate', {
+      io.to(room.displaySocketId).emit('remoteVoteDraftCrate', {
         socketId: socket.id,
-        playerIndex: client?.playerIndex ?? 1,
+        playerIndex: client?.playerIndex ?? 0,
         crateId: data.crateId
       });
     }
@@ -271,42 +272,44 @@ io.on('connection', (socket: Socket) => {
     }
   });
 
-  // 6.3 Host Started Game Notification to all controllers
+  // 6.3 Host / Captain Started Game Notification to all controllers
   socket.on('hostGameStarted', (data: { roomCode: string }) => {
     const room = roomManager.getRoom(data.roomCode);
-    if (room && room.hostSocketId === socket.id) {
+    if (room && (room.captainSocketId === socket.id || room.displaySocketId === socket.id)) {
       io.to(room.roomCode).emit('lobbyGameStarted');
-      console.log(`[Lobby Cast Off] Host started game in room ${room.roomCode}!`);
+      io.to(room.displaySocketId).emit('startRoundFromPhone');
+      console.log(`[Lobby Cast Off] Game started in room ${room.roomCode}!`);
     }
   });
 
-  // 6.5 VIP Player 1 Cast Off from Phone Controller!
+  // 6.5 VIP Captain (P1 Phone) Cast Off from Phone Controller!
   socket.on('startRoundFromController', () => {
     const room = roomManager.getRoomForSocket(socket.id);
     if (room) {
-      io.to(room.hostSocketId).emit('startRoundFromPhone');
+      io.to(room.displaySocketId).emit('startRoundFromPhone');
       io.to(room.roomCode).emit('lobbyGameStarted');
-      console.log(`[Lobby Cast Off] Round started from phone controller in room ${room.roomCode}!`);
+      console.log(`[Lobby Cast Off] Round started from Captain phone in room ${room.roomCode}!`);
     }
   });
 
   // 7. Disconnect Handler
   socket.on('disconnect', () => {
-    const { roomCode, wasHost } = roomManager.handleSocketDisconnect(socket.id);
+    const { roomCode, wasDisplay, wasCaptain } = roomManager.handleSocketDisconnect(socket.id);
     if (roomCode) {
-      if (wasHost) {
-        io.to(roomCode).emit('hostDisconnected', { message: 'Host has closed the virtual room.' });
-        console.log(`[Host Left] Virtual Room ${roomCode} closed.`);
+      if (wasDisplay) {
+        io.to(roomCode).emit('hostDisconnected', { message: 'TV Display has closed the virtual room.' });
+        console.log(`[TV Display Left] Virtual Room ${roomCode} closed.`);
       } else {
         const room = roomManager.getRoom(roomCode);
         if (room) {
           const summary = roomManager.getCrewSummary(roomCode);
           io.to(room.roomCode).emit('remotePlayerLeft', { 
             socketId: socket.id,
+            wasCaptain,
             ...summary 
           });
         }
-        console.log(`[Client Disconnected] ${socket.id} left ${roomCode}`);
+        console.log(`[Client Disconnected] ${socket.id} left ${roomCode} (wasCaptain: ${wasCaptain})`);
       }
     }
   });
