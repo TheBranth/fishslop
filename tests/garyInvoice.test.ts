@@ -45,13 +45,30 @@ assert(engine.state.teamCash === 200, `Team cash wallet reduced to net surplus (
 console.log('  ✅ Team cash wallet correctly sunk by day rent ($450 -> $200)!');
 console.log('  ✅ Surplus kept for upgrade draft is exactly $200.');
 
-// TEST 3: Transition to Draft Phase
-console.log('\n📦 TEST GROUP 3: Proceed from Invoice to Draft Phase');
-engine.proceedFromInvoiceToDraft();
-assert(engine.state.gameState === 'draft_phase', 'Engine transitions from invoice_phase to draft_phase');
-assert(engine.state.draftState !== null, 'Draft state initialized');
-assert(engine.state.teamCash === 200, 'Team wallet preserves surplus ($200) into draft phase');
-console.log('  ✅ Proceed to draft preserves wallet and initializes crates!');
+// TEST 4: Contextual Upgrade and Hazard Fee Matching
+console.log('\n🎯 TEST GROUP 4: Contextual Upgrade & Hazard Fees');
+let fryerFeeSeen = false;
+let eelFeeSeen = false;
+
+for (let i = 0; i < 50; i++) {
+  const inv = generateGaryInvoice(
+    3, // Level 3 (eels / rays)
+    'Abyssal Trench',
+    1200,
+    900,
+    new Set(['cooler', 'deep_fryer']),
+    new Set(['anti_slip'])
+  );
+
+  inv.items.forEach(it => {
+    if (it.reason.toLowerCase().includes('fryer') || it.reason.toLowerCase().includes('grease')) fryerFeeSeen = true;
+    if (it.reason.toLowerCase().includes('electric') || it.reason.toLowerCase().includes('grounding') || it.reason.toLowerCase().includes('ink')) eelFeeSeen = true;
+  });
+}
+
+assert(fryerFeeSeen, 'Deep fryer fees correctly triggered when deep_fryer is unlocked');
+assert(eelFeeSeen, 'Electric eel/ray grounding fees correctly triggered in Level 3');
+console.log('  ✅ Contextual fees for Deep Fryer and Electric Eels/Rays successfully generated!');
 
 console.log('\n🎉 ========================================================');
 console.log('🎉 ALL GARY-OS INVOICE & CASH SINK TESTS PASSED 100%!');

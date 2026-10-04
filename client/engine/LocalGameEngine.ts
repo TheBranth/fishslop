@@ -1727,7 +1727,9 @@ export class LocalGameEngine {
       this.state.level.levelNumber,
       this.state.level.name,
       this.levelTeamCashEarned,
-      this.state.level.targetQuota
+      this.state.level.targetQuota,
+      this.unlockedStations,
+      this.activePerks
     );
     this.state.garyInvoice = invoice;
 
